@@ -12,6 +12,8 @@ yarn-error.log*
 # Build outputs
 dist/
 build/
+*.zip
+*.apk
 
 # Docker volumes and persistent data
 postgres_data/
