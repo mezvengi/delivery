@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>توصيل سور الغزلان</title>
   
+  <!-- PWA Manifest & Icons -->
+  <link rel="manifest" href="/app/manifest.json">
+  <meta name="theme-color" content="#0284c7">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  
   <!-- Leaflet CSS for OpenStreetMap -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   
@@ -243,7 +249,12 @@
       <span>🛵</span>
       <span>توصيل سور الغزلان</span>
     </div>
-    <span class="zone-tag">📍 بلدية سور الغزلان</span>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <button id="btnInstallPwa" style="display:none; width:auto; padding:4px 10px; font-size:0.75rem; background:var(--secondary);" onclick="triggerPwaInstall()">
+        📲 تثبيت التطبيق
+      </button>
+      <span class="zone-tag">📍 سور الغزلان</span>
+    </div>
   </header>
 
   <div class="container">
@@ -1178,6 +1189,34 @@
       document.getElementById('btnNavDriver').className = 'nav-btn' + (tab === 'driver' ? ' active' : '');
 
       if (tab === 'driver') loadDriverOrders();
+    }
+
+    // PWA Install Handling
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const btn = document.getElementById('btnInstallPwa');
+      if (btn) btn.style.display = 'inline-flex';
+    });
+
+    function triggerPwaInstall() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult) => {
+          if (choiceResult.outcome === 'accepted') {
+            document.getElementById('btnInstallPwa').style.display = 'none';
+          }
+          deferredPrompt = null;
+        });
+      }
+    }
+
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/app/sw.js').catch(err => console.log('SW fail', err));
+      });
     }
 
     window.addEventListener('DOMContentLoaded', () => {
