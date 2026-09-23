@@ -1,0 +1,25 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Node dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+
+# Docker volumes and persistent data
+postgres_data/
+caddy_data/
+caddy_config/
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
