@@ -22,9 +22,8 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Arabic', sans-serif; }
-    body { background-color: var(--bg); color: var(--text); padding-bottom: 70px; }
+    body { background-color: var(--bg); color: var(--text); padding-bottom: 75px; }
 
-    /* Top Bar */
     header {
       background: var(--card);
       border-bottom: 1px solid var(--border);
@@ -37,12 +36,10 @@
       z-index: 1000;
     }
     .brand { font-size: 1.1rem; font-weight: bold; color: var(--primary); display: flex; align-items: center; gap: 8px; }
-    .zone-tag { font-size: 0.75rem; background: #e0f2fe; color: var(--primary); padding: 4px 8px; border-radius: 12px; }
+    .zone-tag { font-size: 0.75rem; background: #e0f2fe; color: var(--primary); padding: 4px 8px; border-radius: 12px; font-weight: bold; }
 
-    /* Container */
     .container { max-width: 600px; margin: 0 auto; padding: 12px; }
 
-    /* Cards */
     .card {
       background: var(--card);
       border-radius: 12px;
@@ -52,9 +49,6 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     .card-title { font-size: 1rem; font-weight: bold; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-
-    /* Map */
-    #map { height: 260px; width: 100%; border-radius: 10px; margin-bottom: 12px; z-index: 1; border: 1px solid var(--border); }
 
     /* Buttons & Inputs */
     button {
@@ -75,7 +69,7 @@
     button:active { opacity: 0.9; }
     button.btn-secondary { background: var(--secondary); }
     button.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
-    input, select {
+    input, select, textarea {
       width: 100%;
       padding: 10px 12px;
       border-radius: 8px;
@@ -86,32 +80,97 @@
       color: var(--text);
     }
 
-    /* Drivers List */
-    .driver-item {
+    /* Shops Grid / Cards */
+    .shop-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+      background: var(--card);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .shop-item:hover { border-color: var(--primary); background: #f0f9ff; }
+    .shop-info h3 { font-size: 1rem; color: var(--text); margin-bottom: 4px; }
+    .shop-info p { font-size: 0.8rem; color: var(--text-muted); }
+
+    /* Products in Shop Page */
+    .product-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .product-card:last-child { border-bottom: none; }
+    .product-title { font-weight: bold; font-size: 0.95rem; }
+    .product-desc { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+    .product-price { font-weight: bold; color: var(--primary); font-size: 1rem; margin-top: 4px; }
+    .qty-control { display: flex; align-items: center; gap: 8px; }
+    .qty-btn { width: 32px; height: 32px; border-radius: 6px; padding: 0; font-size: 1.1rem; }
+
+    /* Sticky Cart Bar */
+    .sticky-cart-bar {
+      position: sticky;
+      bottom: 70px;
+      background: #0f172a;
+      color: white;
+      padding: 12px 16px;
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      z-index: 99;
+    }
+
+    /* Modal for Driver Selection */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      justify-content: center;
+      align-items: flex-end;
+      z-index: 2000;
+    }
+    .modal-sheet {
+      background: var(--card);
+      width: 100%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+      border-radius: 20px 20px 0 0;
+      padding: 20px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
+      animation: slideUp 0.3s ease-out;
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+    #modalMap { height: 200px; width: 100%; border-radius: 10px; margin: 10px 0; border: 1px solid var(--border); }
+
+    .driver-choice {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px;
-      border-radius: 8px;
+      padding: 10px 12px;
       border: 1px solid var(--border);
+      border-radius: 8px;
       margin-bottom: 8px;
-      background: #f1f5f9;
+      background: #f8fafc;
       cursor: pointer;
-      transition: border 0.2s;
     }
-    .driver-item.selected {
+    .driver-choice.active {
       border: 2px solid var(--primary);
       background: #e0f2fe;
     }
-    .driver-info { display: flex; flex-direction: column; gap: 2px; }
-    .driver-name { font-weight: bold; font-size: 0.95rem; }
-    .driver-status { font-size: 0.8rem; color: var(--secondary); }
-
-    /* Shops & Products */
-    .shop-card { border-right: 4px solid var(--primary); }
-    .product-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
-    .product-row:last-child { border-bottom: none; }
-    .price-tag { font-weight: bold; color: var(--primary); }
 
     /* Bottom Navigation */
     nav.bottom-bar {
@@ -141,14 +200,7 @@
     .nav-btn.active { color: var(--primary); font-weight: bold; }
     .nav-icon { font-size: 1.3rem; }
 
-    /* Status badge */
-    .status-badge {
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      font-weight: bold;
-    }
+    .status-badge { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; }
     .status-NEW { background: #fef3c7; color: #b45309; }
     .status-CONFIRMED { background: #e0f2fe; color: #0369a1; }
     .status-OUT_FOR_DELIVERY { background: #fef08a; color: #854d0e; }
@@ -165,39 +217,116 @@
     <span class="zone-tag">📍 بلدية سور الغزلان</span>
   </header>
 
-  <div class="container" id="appContent">
-    <!-- Screen 1: Order / Customer View with Map & Driver Selection -->
-    <div id="customerScreen">
-      <!-- Live Map Card -->
-      <div class="card">
-        <div class="card-title">
-          <span>🗺️ خريطة السائقين المتوفرين مباشرة</span>
-          <button class="btn-outline" style="width:auto; padding: 4px 8px; font-size:0.8rem;" onclick="loadDrivers()">🔄 تحديث</button>
+  <div class="container">
+    <!-- VIEW 1: Customer View -->
+    <div id="customerView">
+      
+      <!-- SUB-VIEW 1A: List of Shops in Sour El Ghozlane -->
+      <div id="shopsListView">
+        <div class="card">
+          <div class="card-title">🏪 المتاجر والمطاعم في سور الغزلان</div>
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
+            اختر متجراً أو مطعماً لتصفح قائمة منتجاته والطلب منه:
+          </p>
+          <div id="shopsContainer">جاري تحميل المتاجر...</div>
         </div>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:8px;">
-          اختر سائقك المفضل مباشرة من الخريطة لتوصيل طلبك:
-        </p>
-        <div id="map"></div>
-        
-        <div id="driversContainer">
-          <div style="font-size:0.9rem; font-weight:bold; margin-bottom:6px;">السائقون المتصلون حالياً في سور الغزلان:</div>
-          <div id="driversList">جاري البحث عن السائقين المتوفرين...</div>
+
+        <!-- Previous Orders -->
+        <div class="card">
+          <div class="card-title">📦 طلباتي الحالية</div>
+          <div id="ordersContainer">لا توجد طلبات سابقة.</div>
         </div>
       </div>
 
-      <!-- Shop and Order Form Card -->
+      <!-- SUB-VIEW 1B: Single Shop Page (All Products) -->
+      <div id="singleShopView" style="display:none;">
+        <button class="btn-outline" style="margin-bottom:10px;" onclick="showShopsList()">⬅️ العودة لجميع المتاجر</button>
+        
+        <div class="card" style="border-right: 4px solid var(--primary);">
+          <h2 id="currentShopName" style="font-size:1.15rem; margin-bottom:4px;">اسم المتجر</h2>
+          <p id="currentShopDesc" style="font-size:0.85rem; color:var(--text-muted);"></p>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🍽️ قائمة المنتجات المتاحة</div>
+          <div id="currentShopProducts">جاري جلب المنتجات...</div>
+        </div>
+
+        <!-- Sticky Cart & Order Button -->
+        <div class="sticky-cart-bar" id="cartBar" style="display:none;">
+          <div>
+            <div style="font-size:0.8rem; opacity:0.8;">إجمالي السلة:</div>
+            <div style="font-size:1.1rem; font-weight:bold;" id="cartTotalText">0 دج</div>
+          </div>
+          <button style="width:auto; padding:8px 18px; background:var(--secondary);" onclick="openDriverModal()">
+            🛵 اختيار السائق وإتمام الطلب
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- VIEW 2: Driver Mode -->
+    <div id="driverView" style="display:none;">
       <div class="card">
-        <div class="card-title">🛍️ إنشاء طلب جديد والدفع عند الاستلام</div>
+        <div class="card-title">🛵 وضع السائق (توصيل الطلبات)</div>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
+          فعّل تواجدك كسائق لتظهر على خريطة سور الغزلان للزبائن ويتم اختيارك مباشرة.
+        </p>
+        <label style="font-size:0.85rem;">رقم هاتف السائق:</label>
+        <input type="text" id="driverPhoneInput" value="0552222222">
+        <button class="btn-secondary" onclick="activateDriverLocation()">📍 تفعيل موقعي كـ سائق متاح الآن</button>
+        <div id="driverStatusMsg" style="margin-top:8px; font-size:0.85rem; color:var(--secondary);"></div>
+      </div>
 
-        <label style="font-size:0.85rem; color:var(--text-muted);">المتجر / المطعم:</label>
-        <select id="shopSelect" onchange="loadProducts(this.value)">
-          <option value="">اختر متجراً...</option>
-        </select>
+      <div class="card">
+        <div class="card-title">📋 الطلبات المسندة إليك</div>
+        <div id="driverOrdersContainer">جاري جلب الطلبات...</div>
+      </div>
+    </div>
 
-        <div id="productsList" style="margin-bottom:12px;"></div>
+    <!-- VIEW 3: Shop Owner Dashboard (Add Products) -->
+    <div id="shopOwnerView" style="display:none;">
+      <div class="card">
+        <div class="card-title">🏪 صفحة البائع / إضافة المنتجات</div>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
+          أضف وجباتك ومنتجاتك لتظهر مباشرة للزبائن في بلدية سور الغزلان.
+        </p>
+        
+        <label style="font-size:0.85rem;">اسم الوجبة / المنتج:</label>
+        <input type="text" id="newProdName" placeholder="مثال: بيتزا مارغريتا، طاكوس دجاج">
 
-        <label style="font-size:0.85rem; color:var(--text-muted);">الحي / مكان التوصيل (سور الغزلان):</label>
-        <select id="neighborhoodSelect">
+        <label style="font-size:0.85rem;">الوصف والمكونات:</label>
+        <input type="text" id="newProdDesc" placeholder="مثال: جبن، صلصة خاصة، بطاطا مقلية">
+
+        <label style="font-size:0.85rem;">السعر بالدينار الجزائري (DA):</label>
+        <input type="number" id="newProdPrice" placeholder="500">
+
+        <button onclick="addNewProductByShop()">➕ إضافة المنتج لصفحتي</button>
+        <div id="shopAddMsg" style="margin-top:8px; font-size:0.85rem;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Driver Selection on Map (Tنبثق عند اختيار المنتج والطلب) -->
+  <div class="modal-overlay" id="driverModal">
+    <div class="modal-sheet">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="font-size:1.1rem; color:var(--primary);">🗺️ اختر السائق المتاح لتوصيل طلبك</h3>
+        <button class="btn-outline" style="width:32px; height:32px; border-radius:50%; padding:0;" onclick="closeDriverModal()">✕</button>
+      </div>
+      <p style="font-size:0.85rem; color:var(--text-muted);">
+        انقر على دراجة السائق 🛵 على خريطة سور الغزلان أو اختره من القائمة:
+      </p>
+
+      <div id="modalMap"></div>
+
+      <div style="font-size:0.9rem; font-weight:bold; margin: 10px 0 6px;">السائقون المتوفرون في بلدية سور الغزلان:</div>
+      <div id="modalDriversList">جاري البحث عن السائقين...</div>
+
+      <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:10px;">
+        <label style="font-size:0.85rem; font-weight:bold;">حي التوصيل (سور الغزلان):</label>
+        <select id="modalNeighborhood">
           <option value="حي الوئام">حي الوئام</option>
           <option value="حي 114 مسكن">حي 114 مسكن</option>
           <option value="وسط المدينة">وسط المدينة</option>
@@ -209,62 +338,42 @@
           <option value="حي النصر">حي النصر</option>
         </select>
 
-        <label style="font-size:0.85rem; color:var(--text-muted);">وصف دقيق للعنوان / رقم الباب:</label>
-        <input type="text" id="deliveryDesc" placeholder="مثال: قرب المسجد، عمارة 3 الطابق الأول">
+        <label style="font-size:0.85rem; font-weight:bold;">وصف العنوان الدقيق:</label>
+        <input type="text" id="modalDeliveryDesc" placeholder="مثال: قرب المدرسة، عمارة 4 الطابق الثاني">
 
         <div style="background:#f1f5f9; padding:10px; border-radius:8px; margin-bottom:12px; font-size:0.9rem;">
           <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
             <span>مجموع المنتجات:</span>
-            <span id="itemsTotal">0 دج</span>
+            <span id="modalItemsTotal">0 دج</span>
           </div>
           <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
             <span>سعر التوصيل الثابت:</span>
             <span>200 دج</span>
           </div>
-          <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:1rem; color:var(--primary); border-top:1px solid var(--border); padding-top:4px;">
+          <div style="display:flex; justify-content:space-between; font-weight:bold; color:var(--primary); border-top:1px solid var(--border); padding-top:4px;">
             <span>المبلغ الإجمالي (دفع عند الاستلام):</span>
-            <span id="orderTotal">200 دج</span>
+            <span id="modalFinalTotal">200 دج</span>
           </div>
         </div>
 
-        <button onclick="submitOrder()">✅ تأكيد الطلب مع السائق المختار</button>
-      </div>
-
-      <!-- Active Orders -->
-      <div class="card">
-        <div class="card-title">📦 طلباتي الحالية</div>
-        <div id="ordersList">لا توجد طلبات سابقة.</div>
-      </div>
-    </div>
-
-    <!-- Screen 2: Driver Mode -->
-    <div id="driverScreen" style="display:none;">
-      <div class="card">
-        <div class="card-title">🛵 وضع السائق (توصيل الطلبات)</div>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
-          قم بتفعيل موقعك لتظهر للزبائن على الخريطة في سور الغزلان وتستقبل الطلبات.
-        </p>
-
-        <label style="font-size:0.85rem;">رقم هاتف السائق:</label>
-        <input type="text" id="driverPhoneInput" value="0552222222">
-        <button class="btn-secondary" onclick="simulateDriverLocation()">📍 إرسال وتحديث موقعي كـ سائق الآن</button>
-        <div id="driverStatusMsg" style="margin-top:8px; font-size:0.85rem; color:var(--secondary);"></div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">📋 الطلبات المسندة إليّ</div>
-        <div id="driverOrdersList">جاري جلب الطلبات...</div>
+        <button onclick="confirmOrderWithDriver()" style="background:var(--secondary); padding:12px;">
+          ✅ تأكيد الطلب مع السائق المختار والدفع عند الاستلام
+        </button>
       </div>
     </div>
   </div>
 
   <!-- Bottom Navigation -->
   <nav class="bottom-bar">
-    <button class="nav-btn active" id="btnNavCustomer" onclick="switchTab('customer')">
+    <button class="nav-btn active" id="btnNavCustomer" onclick="switchMainTab('customer')">
       <span class="nav-icon">🛒</span>
-      <span>طلب وتوصيل</span>
+      <span>المتاجر والطلب</span>
     </button>
-    <button class="nav-btn" id="btnNavDriver" onclick="switchTab('driver')">
+    <button class="nav-btn" id="btnNavShop" onclick="switchMainTab('shop')">
+      <span class="nav-icon">🏪</span>
+      <span>لوحة البائع</span>
+    </button>
+    <button class="nav-btn" id="btnNavDriver" onclick="switchMainTab('driver')">
       <span class="nav-icon">🛵</span>
       <span>وضع السائق</span>
     </button>
@@ -278,38 +387,22 @@
     const SOUR_LAT = 36.1480;
     const SOUR_LNG = 3.6900;
 
-    let map = null;
-    let markersLayer = null;
-    let availableDrivers = [];
-    let selectedDriverId = null;
-    let cart = [];
     let customerToken = null;
     let driverToken = null;
+    let shopToken = null;
 
-    // Initialize Map with OpenStreetMap
-    function initMap() {
-      if (map) return;
-      map = L.map('map').setView([SOUR_LAT, SOUR_LNG], 14);
+    let allShops = [];
+    let currentShop = null;
+    let currentProducts = [];
+    let cart = {}; // productId -> qty
+    let availableDrivers = [];
+    let selectedDriverId = null;
 
-      // OpenStreetMap Tiles
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map);
+    let modalMap = null;
+    let modalMarkersLayer = null;
 
-      // Geofence Circle for Sour El Ghozlane (radius: ~3.5km)
-      L.circle([SOUR_LAT, SOUR_LNG], {
-        color: '#0284c7',
-        fillColor: '#38bdf8',
-        fillOpacity: 0.1,
-        radius: 3500
-      }).addTo(map);
-
-      markersLayer = L.layerGroup().addTo(map);
-    }
-
-    // Auto-login or register customer in background
-    async function initCustomerAuth() {
+    // Bootstrap Customer Authentication
+    async function initAuth() {
       try {
         const otpRes = await fetch(API + '/auth/send-otp', {
           method: 'POST',
@@ -329,36 +422,198 @@
         }).then(r => r.json());
 
         customerToken = verifyRes.token;
-        loadDrivers();
         loadShops();
-        loadMyOrders();
-      } catch (err) {
-        console.error('Auth error:', err);
+        loadCustomerOrders();
+      } catch (e) {
+        console.error('Auth error', e);
       }
     }
 
-    // Load Available Drivers on OpenStreetMap
-    async function loadDrivers() {
-      if (!customerToken) return;
+    // Load Shops List
+    async function loadShops() {
+      try {
+        const res = await fetch(API + '/shops').then(r => r.json());
+        allShops = res.shops || [];
+        const container = document.getElementById('shopsContainer');
+        if (allShops.length === 0) {
+          container.innerHTML = '<p style="color:var(--text-muted);">لا توجد متاجر مسجلة حالياً.</p>';
+          return;
+        }
+
+        container.innerHTML = '';
+        allShops.forEach(s => {
+          const item = document.createElement('div');
+          item.className = 'shop-item';
+          item.onclick = () => openShopPage(s);
+          item.innerHTML = `
+            <div class="shop-info">
+              <h3>🏪 ${s.name}</h3>
+              <p>📍 ${s.address_description || 'سور الغزلان'} • (${s.category || 'عام'})</p>
+            </div>
+            <button style="width:auto; padding:6px 12px; font-size:0.85rem;">دخول المتجر ⬅️</button>
+          `;
+          container.appendChild(item);
+        });
+      } catch (err) {
+        console.error('Error loading shops', err);
+      }
+    }
+
+    // Open Shop Page (Displaying all products for that shop)
+    async function openShopPage(shop) {
+      currentShop = shop;
+      cart = {};
+      document.getElementById('currentShopName').textContent = shop.name;
+      document.getElementById('currentShopDesc').textContent = `📍 ${shop.address_description || 'سور الغزلان'} (${shop.category || 'متجر'})`;
+
+      document.getElementById('shopsListView').style.display = 'none';
+      document.getElementById('singleShopView').style.display = 'block';
+
+      const prodContainer = document.getElementById('currentShopProducts');
+      prodContainer.innerHTML = 'جاري جلب المنتجات...';
+
+      try {
+        const res = await fetch(API + `/shops/${shop.id}/products`).then(r => r.json());
+        currentProducts = res.products || [];
+
+        if (currentProducts.length === 0) {
+          prodContainer.innerHTML = '<p style="color:var(--text-muted); padding:10px;">لم يقم المتجر بإضافة منتجات بعد.</p>';
+          return;
+        }
+
+        prodContainer.innerHTML = '';
+        currentProducts.forEach(p => {
+          const card = document.createElement('div');
+          card.className = 'product-card';
+          card.innerHTML = `
+            <div>
+              <div class="product-title">${p.name}</div>
+              <div class="product-desc">${p.description || ''}</div>
+              <div class="product-price">${p.price_da} دج</div>
+            </div>
+            <div class="qty-control">
+              <button class="qty-btn btn-outline" onclick="changeQty(${p.id}, -1)">-</button>
+              <span id="qty_${p.id}" style="font-weight:bold; min-width:20px; text-align:center;">0</span>
+              <button class="qty-btn" onclick="changeQty(${p.id}, 1)">+</button>
+            </div>
+          `;
+          prodContainer.appendChild(card);
+        });
+
+        updateCartBar();
+      } catch (e) {
+        prodContainer.innerHTML = 'خطأ في تحميل المنتجات';
+      }
+    }
+
+    function showShopsList() {
+      document.getElementById('singleShopView').style.display = 'none';
+      document.getElementById('shopsListView').style.display = 'block';
+    }
+
+    // Cart Quantity Management
+    function changeQty(productId, delta) {
+      const current = cart[productId] || 0;
+      const updated = Math.max(0, current + delta);
+      if (updated === 0) {
+        delete cart[productId];
+      } else {
+        cart[productId] = updated;
+      }
+      const el = document.getElementById(`qty_${productId}`);
+      if (el) el.textContent = updated;
+      updateCartBar();
+    }
+
+    function calculateCartTotal() {
+      let sum = 0;
+      for (const [prodId, qty] of Object.entries(cart)) {
+        const prod = currentProducts.find(p => p.id == prodId);
+        if (prod) {
+          sum += (parseFloat(prod.price_da) * qty);
+        }
+      }
+      return sum;
+    }
+
+    function updateCartBar() {
+      const total = calculateCartTotal();
+      const cartBar = document.getElementById('cartBar');
+      if (total > 0) {
+        cartBar.style.display = 'flex';
+        document.getElementById('cartTotalText').textContent = total + ' دج';
+      } else {
+        cartBar.style.display = 'none';
+      }
+    }
+
+    // Open Driver Selection Modal
+    async function openDriverModal() {
+      const total = calculateCartTotal();
+      if (total <= 0) return alert('الرجاء اختيار منتج واحد على الأقل');
+
+      document.getElementById('modalItemsTotal').textContent = total + ' دج';
+      document.getElementById('modalFinalTotal').textContent = (total + 200) + ' دج';
+      document.getElementById('driverModal').style.display = 'flex';
+
+      initModalMap();
+      loadModalDrivers();
+    }
+
+    function closeDriverModal() {
+      document.getElementById('driverModal').style.display = 'none';
+    }
+
+    // Initialize Map in Modal
+    function initModalMap() {
+      if (modalMap) {
+        setTimeout(() => modalMap.invalidateSize(), 150);
+        return;
+      }
+
+      modalMap = L.map('modalMap').setView([SOUR_LAT, SOUR_LNG], 14);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+      }).addTo(modalMap);
+
+      L.circle([SOUR_LAT, SOUR_LNG], {
+        color: '#0284c7',
+        fillColor: '#38bdf8',
+        fillOpacity: 0.15,
+        radius: 3500
+      }).addTo(modalMap);
+
+      modalMarkersLayer = L.layerGroup().addTo(modalMap);
+      setTimeout(() => modalMap.invalidateSize(), 200);
+    }
+
+    // Load Available Drivers in Modal
+    async function loadModalDrivers() {
       try {
         const res = await fetch(API + '/drivers/available', {
           headers: { 'Authorization': 'Bearer ' + customerToken }
         }).then(r => r.json());
 
         availableDrivers = res.drivers || [];
-        renderDriversMap();
+        renderModalDrivers();
       } catch (err) {
-        console.error('Error loading drivers:', err);
+        console.error('Error fetching drivers', err);
       }
     }
 
-    function renderDriversMap() {
-      markersLayer.clearLayers();
-      const listEl = document.getElementById('driversList');
+    function renderModalDrivers() {
+      modalMarkersLayer.clearLayers();
+      const listEl = document.getElementById('modalDriversList');
 
       if (availableDrivers.length === 0) {
-        listEl.innerHTML = '<span style="color:var(--text-muted); font-size:0.85rem;">لا يوجد سائقون متصلون حالياً في سور الغزلان. اضغط على "وضع السائق" بالأسفل لتفعيل موقع سائق تجريبي.</span>';
+        listEl.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">لا يوجد سائقون متصلون حالياً في سور الغزلان. يمكنك التبديل إلى "وضع السائق" بالأسفل وتفعيل سائق تجريبي.</p>';
         return;
+      }
+
+      // Default select first driver
+      if (!selectedDriverId && availableDrivers.length > 0) {
+        selectedDriverId = availableDrivers[0].id;
       }
 
       listEl.innerHTML = '';
@@ -366,7 +621,7 @@
         const lat = parseFloat(d.lat) || SOUR_LAT;
         const lng = parseFloat(d.lng) || SOUR_LNG;
 
-        // Custom motorcycle marker
+        // Leaflet marker
         const icon = L.divIcon({
           className: 'custom-driver-icon',
           html: '<div style="background:#0284c7; color:white; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:16px; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.3);">🛵</div>',
@@ -374,104 +629,43 @@
           iconAnchor: [16, 16]
         });
 
-        const marker = L.marker([lat, lng], { icon }).addTo(markersLayer);
-        marker.bindPopup(`
-          <div style="direction:rtl; font-family:sans-serif;">
-            <strong>${d.full_name}</strong><br>
-            📞 ${d.phone}<br>
-            <button style="margin-top:6px; padding:4px 8px; font-size:0.8rem;" onclick="selectDriver(${d.id})">اختيار هذا السائق</button>
-          </div>
-        `);
+        const marker = L.marker([lat, lng], { icon }).addTo(modalMarkersLayer);
+        marker.bindPopup(`<strong>${d.full_name}</strong><br>📞 ${d.phone}`);
+        marker.on('click', () => pickDriver(d.id));
 
-        // Driver List Item
-        const item = document.createElement('div');
-        item.className = 'driver-item' + (selectedDriverId === d.id ? ' selected' : '');
-        item.onclick = () => selectDriver(d.id);
-        item.innerHTML = `
-          <div class="driver-info">
-            <span class="driver-name">🛵 ${d.full_name}</span>
-            <span class="driver-status">● متوفر الآن للتوصيل</span>
-          </div>
+        // Choice Row
+        const choice = document.createElement('div');
+        choice.className = 'driver-choice' + (selectedDriverId === d.id ? ' active' : '');
+        choice.onclick = () => pickDriver(d.id);
+        choice.innerHTML = `
           <div>
-            <span style="font-size:0.85rem; color:var(--primary); font-weight:bold;">${selectedDriverId === d.id ? 'تم الاختيار ✔' : 'اختر السائق'}</span>
+            <strong>🛵 ${d.full_name}</strong>
+            <div style="font-size:0.8rem; color:var(--text-muted);">📞 ${d.phone} • متوفر للتوصيل</div>
           </div>
+          <span style="font-weight:bold; color:var(--primary); font-size:0.85rem;">${selectedDriverId === d.id ? '✔ تم الاختيار' : 'اختيار'}</span>
         `;
-        listEl.appendChild(item);
+        listEl.appendChild(choice);
       });
     }
 
-    function selectDriver(id) {
+    function pickDriver(id) {
       selectedDriverId = id;
-      renderDriversMap();
+      renderModalDrivers();
     }
 
-    // Load Shops
-    async function loadShops() {
-      try {
-        const res = await fetch(API + '/shops').then(r => r.json());
-        const select = document.getElementById('shopSelect');
-        select.innerHTML = '<option value="">اختر متجراً...</option>';
-        (res.shops || []).forEach(s => {
-          const opt = document.createElement('option');
-          opt.value = s.id;
-          opt.textContent = `${s.name} (${s.category || 'متجر'})`;
-          select.appendChild(opt);
-        });
+    // Submit Order with Driver
+    async function confirmOrderWithDriver() {
+      if (!selectedDriverId) return alert('الرجاء اختيار سائق من القائمة أو الخريطة');
 
-        // Auto select first shop if available
-        if (res.shops && res.shops.length > 0) {
-          select.value = res.shops[0].id;
-          loadProducts(res.shops[0].id);
+      const items = [];
+      for (const [prodId, qty] of Object.entries(cart)) {
+        if (qty > 0) {
+          items.push({ product_id: parseInt(prodId), quantity: qty });
         }
-      } catch (err) {
-        console.error('Error loading shops:', err);
       }
-    }
 
-    // Load Products
-    async function loadProducts(shopId) {
-      if (!shopId) return;
-      try {
-        const res = await fetch(API + `/shops/${shopId}/products`).then(r => r.json());
-        const listEl = document.getElementById('productsList');
-        listEl.innerHTML = '';
-        cart = [];
-
-        (res.products || []).forEach(p => {
-          cart.push({ product_id: p.id, name: p.name, price_da: parseFloat(p.price_da), quantity: 1 });
-          const row = document.createElement('div');
-          row.className = 'product-row';
-          row.innerHTML = `
-            <div>
-              <div style="font-weight:bold; font-size:0.9rem;">${p.name}</div>
-              <div style="font-size:0.8rem; color:var(--text-muted);">${p.description || ''}</div>
-            </div>
-            <div class="price-tag">${p.price_da} دج</div>
-          `;
-          listEl.appendChild(row);
-        });
-
-        updateTotal();
-      } catch (err) {
-        console.error('Error loading products:', err);
-      }
-    }
-
-    function updateTotal() {
-      const itemsTotal = cart.reduce((sum, item) => sum + (item.price_da * item.quantity), 0);
-      document.getElementById('itemsTotal').textContent = itemsTotal + ' دج';
-      document.getElementById('orderTotal').textContent = (itemsTotal + 200) + ' دج';
-    }
-
-    // Submit Order
-    async function submitOrder() {
-      const shopId = document.getElementById('shopSelect').value;
-      if (!shopId) return alert('يرجى اختيار المتجر');
-      if (cart.length === 0) return alert('السلة فارغة');
-      if (!selectedDriverId) return alert('يرجى اختيار سائق من الخريطة أولاً!');
-
-      const neighborhood = document.getElementById('neighborhoodSelect').value;
-      const desc = document.getElementById('deliveryDesc').value;
+      const neighborhood = document.getElementById('modalNeighborhood').value;
+      const desc = document.getElementById('modalDeliveryDesc').value;
 
       try {
         const res = await fetch(API + '/orders', {
@@ -481,59 +675,59 @@
             'Authorization': 'Bearer ' + customerToken
           },
           body: JSON.stringify({
-            shop_id: parseInt(shopId),
+            shop_id: currentShop.id,
             driver_id: selectedDriverId,
-            items: cart.map(i => ({ product_id: i.product_id, quantity: i.quantity })),
+            items,
             delivery_neighborhood: neighborhood,
             delivery_description: desc
           })
         }).then(r => r.json());
 
         if (res.success) {
-          alert(`✅ تم إرسال طلبك بنجاح برقم #${res.order.id} مع السائق المختار! والدفع عند الاستلام: ${res.order.total_amount_da} دج`);
-          loadMyOrders();
+          closeDriverModal();
+          alert(`🎉 تم إرسال طلبك بنجاح برقم #${res.order.id} مع السائق المختار!\nالمبلغ الإجمالي للدفع عند الاستلام: ${res.order.total_amount_da} دج`);
+          showShopsList();
+          loadCustomerOrders();
         } else {
-          alert('خطأ: ' + (res.error || 'تعذر إنشاء الطلب'));
+          alert('خطأ: ' + (res.error || 'فشل إرسال الطلب'));
         }
       } catch (err) {
-        alert('حدث خطأ أثناء إرسال الطلب');
+        alert('حدث خطأ في الاتصال بالخادم');
       }
     }
 
-    // Load Customer Orders
-    async function loadMyOrders() {
+    // Customer Orders
+    async function loadCustomerOrders() {
       if (!customerToken) return;
       try {
         const res = await fetch(API + '/orders', {
           headers: { 'Authorization': 'Bearer ' + customerToken }
         }).then(r => r.json());
 
-        const listEl = document.getElementById('ordersList');
+        const cont = document.getElementById('ordersContainer');
         if (!res.orders || res.orders.length === 0) {
-          listEl.innerHTML = '<span style="color:var(--text-muted); font-size:0.85rem;">لا توجد طلبات حالياً.</span>';
+          cont.innerHTML = '<span style="color:var(--text-muted); font-size:0.85rem;">لا توجد طلبات سابقة.</span>';
           return;
         }
 
-        listEl.innerHTML = '';
+        cont.innerHTML = '';
         res.orders.forEach(o => {
-          const item = document.createElement('div');
-          item.style = 'background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:8px; margin-bottom:8px;';
-          item.innerHTML = `
+          const card = document.createElement('div');
+          card.style = 'background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:8px; margin-bottom:8px;';
+          card.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
               <strong>طلب #${o.id} - ${o.shop_name || 'متجر'}</strong>
               <span class="status-badge status-${o.status}">${translateStatus(o.status)}</span>
             </div>
             <div style="font-size:0.85rem; color:var(--text-muted);">
-              🛵 السائق: <strong>${o.driver_name || 'لم يُعيّن'}</strong> ${o.driver_phone ? '(' + o.driver_phone + ')' : ''}<br>
+              🛵 السائق: <strong>${o.driver_name || 'لم يُحدد'}</strong> (${o.driver_phone || ''})<br>
               📍 العنوان: ${o.delivery_neighborhood} (${o.delivery_description || ''})<br>
               💵 الإجمالي: <strong>${o.total_amount_da} دج</strong> (الدفع عند الاستلام)
             </div>
           `;
-          listEl.appendChild(item);
+          cont.appendChild(card);
         });
-      } catch (err) {
-        console.error('Error loading orders:', err);
-      }
+      } catch (e) {}
     }
 
     function translateStatus(s) {
@@ -547,8 +741,8 @@
       return map[s] || s;
     }
 
-    // Driver Simulation / Location Update
-    async function simulateDriverLocation() {
+    // Driver Mode Actions
+    async function activateDriverLocation() {
       const phone = document.getElementById('driverPhoneInput').value;
       try {
         const otpRes = await fetch(API + '/auth/send-otp', {
@@ -570,7 +764,6 @@
 
         driverToken = authRes.token;
 
-        // Random small GPS offset around Sour El Ghozlane center
         const offsetLat = (Math.random() - 0.5) * 0.008;
         const offsetLng = (Math.random() - 0.5) * 0.008;
         const lat = SOUR_LAT + offsetLat;
@@ -585,11 +778,10 @@
           body: JSON.stringify({ lat, lng, heading: 90 })
         });
 
-        document.getElementById('driverStatusMsg').textContent = `✅ تم تحديث موقعك كـ سائق نشط على الخريطة بنجاح! الإحداثيات: (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
-        loadDrivers();
+        document.getElementById('driverStatusMsg').textContent = `✅ أنت متصل الآن كسائق متاح في سور الغزلان (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
         loadDriverOrders();
-      } catch (err) {
-        alert('خطأ في تحديث موقع السائق');
+      } catch (e) {
+        alert('خطأ في تفعيل السائق');
       }
     }
 
@@ -600,13 +792,13 @@
           headers: { 'Authorization': 'Bearer ' + driverToken }
         }).then(r => r.json());
 
-        const listEl = document.getElementById('driverOrdersList');
+        const cont = document.getElementById('driverOrdersContainer');
         if (!res.orders || res.orders.length === 0) {
-          listEl.innerHTML = '<span style="color:var(--text-muted); font-size:0.85rem;">لا توجد طلبات مسندة إليك حالياً.</span>';
+          cont.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">لا توجد طلبات مسندة إليك حالياً.</p>';
           return;
         }
 
-        listEl.innerHTML = '';
+        cont.innerHTML = '';
         res.orders.forEach(o => {
           const item = document.createElement('div');
           item.style = 'background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:8px; margin-bottom:8px;';
@@ -618,21 +810,19 @@
             <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:8px;">
               📞 هاتف الزبون: ${o.customer_phone || ''}<br>
               📍 العنوان: ${o.delivery_neighborhood} (${o.delivery_description || ''})<br>
-              💵 المبلغ للتحصيل نقداً: <strong>${o.total_amount_da} دج</strong>
+              💵 المبلغ المطلوب تحصيله نقداً: <strong>${o.total_amount_da} دج</strong>
             </div>
             <div style="display:flex; gap:6px;">
-              ${o.status === 'CONFIRMED' ? `<button onclick="updateOrderStatus(${o.id}, 'OUT_FOR_DELIVERY')">🛵 انطلاق للتوصيل</button>` : ''}
-              ${o.status === 'OUT_FOR_DELIVERY' ? `<button class="btn-secondary" onclick="updateOrderStatus(${o.id}, 'DELIVERED')">✅ تم التسليم واستلام المبلغ</button>` : ''}
+              ${o.status === 'CONFIRMED' ? `<button onclick="updateDriverOrderStatus(${o.id}, 'OUT_FOR_DELIVERY')">🛵 انطلاق للتوصيل</button>` : ''}
+              ${o.status === 'OUT_FOR_DELIVERY' ? `<button class="btn-secondary" onclick="updateDriverOrderStatus(${o.id}, 'DELIVERED')">✅ تم التسليم واستلام المبلغ</button>` : ''}
             </div>
           `;
-          listEl.appendChild(item);
+          cont.appendChild(item);
         });
-      } catch (err) {
-        console.error('Error loading driver orders:', err);
-      }
+      } catch (e) {}
     }
 
-    async function updateOrderStatus(orderId, status) {
+    async function updateDriverOrderStatus(orderId, status) {
       if (!driverToken) return;
       try {
         await fetch(API + `/orders/${orderId}/status`, {
@@ -644,30 +834,82 @@
           body: JSON.stringify({ status })
         });
         loadDriverOrders();
-        loadMyOrders();
-      } catch (err) {
-        alert('خطأ في تحديث الحالة');
+        loadCustomerOrders();
+      } catch (e) {}
+    }
+
+    // Shop Owner: Add New Product
+    async function addNewProductByShop() {
+      const name = document.getElementById('newProdName').value;
+      const desc = document.getElementById('newProdDesc').value;
+      const price = document.getElementById('newProdPrice').value;
+
+      if (!name || !price) return alert('الرجاء إدخال اسم المنتج والسعر');
+
+      try {
+        // Authenticate as shop owner
+        if (!shopToken) {
+          const otpRes = await fetch(API + '/auth/send-otp', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ phone: '0551111111' })
+          }).then(r => r.json());
+
+          const authRes = await fetch(API + '/auth/verify-otp', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              phone: '0551111111',
+              code: otpRes.mock_code || '123456',
+              full_name: 'صاحب مطعم الوئام',
+              role: 'SHOP'
+            })
+          }).then(r => r.json());
+          shopToken = authRes.token;
+        }
+
+        const res = await fetch(API + '/shops/1/products', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + shopToken
+          },
+          body: JSON.stringify({
+            name,
+            description: desc,
+            price_da: parseFloat(price)
+          })
+        }).then(r => r.json());
+
+        if (res.success) {
+          document.getElementById('shopAddMsg').innerHTML = `<span style="color:var(--secondary); font-weight:bold;">✅ تمت إضافة المنتج (${name} - ${price} دج) بنجاح لصفحتك!</span>`;
+          document.getElementById('newProdName').value = '';
+          document.getElementById('newProdDesc').value = '';
+          document.getElementById('newProdPrice').value = '';
+          loadShops();
+        } else {
+          alert('خطأ: ' + (res.error || 'تعذر إضافة المنتج'));
+        }
+      } catch (e) {
+        alert('خطأ أثناء إضافة المنتج');
       }
     }
 
-    // Switch Tabs
-    function switchTab(tab) {
-      document.getElementById('customerScreen').style.display = tab === 'customer' ? 'block' : 'none';
-      document.getElementById('driverScreen').style.display = tab === 'driver' ? 'block' : 'none';
+    // Main Tab Switcher
+    function switchMainTab(tab) {
+      document.getElementById('customerView').style.display = tab === 'customer' ? 'block' : 'none';
+      document.getElementById('shopOwnerView').style.display = tab === 'shop' ? 'block' : 'none';
+      document.getElementById('driverView').style.display = tab === 'driver' ? 'block' : 'none';
+
       document.getElementById('btnNavCustomer').className = 'nav-btn' + (tab === 'customer' ? ' active' : '');
+      document.getElementById('btnNavShop').className = 'nav-btn' + (tab === 'shop' ? ' active' : '');
       document.getElementById('btnNavDriver').className = 'nav-btn' + (tab === 'driver' ? ' active' : '');
-      if (tab === 'customer' && map) {
-        setTimeout(() => map.invalidateSize(), 100);
-      }
-      if (tab === 'driver') {
-        loadDriverOrders();
-      }
+
+      if (tab === 'driver') loadDriverOrders();
     }
 
-    // Startup
     window.addEventListener('DOMContentLoaded', () => {
-      initMap();
-      initCustomerAuth();
+      initAuth();
     });
   </script>
 </body>
