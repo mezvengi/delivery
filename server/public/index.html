@@ -155,6 +155,7 @@
     @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
     #modalMap { height: 200px; width: 100%; border-radius: 10px; margin: 10px 0; border: 1px solid var(--border); }
+    #trackingMap { height: 260px; width: 100%; border-radius: 10px; margin: 10px 0; border: 1px solid var(--border); }
 
     .driver-choice {
       display: flex;
@@ -171,6 +172,34 @@
       border: 2px solid var(--primary);
       background: #e0f2fe;
     }
+
+    /* Tracking Stepper */
+    .stepper { display: flex; justify-content: space-between; margin: 14px 0; position: relative; }
+    .stepper::before {
+      content: '';
+      position: absolute;
+      top: 14px;
+      left: 10%;
+      right: 10%;
+      height: 3px;
+      background: var(--border);
+      z-index: 0;
+    }
+    .step { position: relative; z-index: 1; text-align: center; font-size: 0.75rem; width: 25%; }
+    .step-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #e2e8f0;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 4px;
+      font-weight: bold;
+    }
+    .step.active .step-icon { background: var(--primary); color: white; }
+    .step.done .step-icon { background: var(--secondary); color: white; }
 
     /* Bottom Navigation */
     nav.bottom-bar {
@@ -231,7 +260,7 @@
           <div id="shopsContainer">جاري تحميل المتاجر...</div>
         </div>
 
-        <!-- Previous Orders -->
+        <!-- Previous Orders with Live Tracking Button -->
         <div class="card">
           <div class="card-title">📦 طلباتي الحالية</div>
           <div id="ordersContainer">لا توجد طلبات سابقة.</div>
@@ -264,19 +293,72 @@
         </div>
       </div>
 
+      <!-- SUB-VIEW 1C: LIVE ORDER TRACKING SCREEN -->
+      <div id="trackingView" style="display:none;">
+        <button class="btn-outline" style="margin-bottom:10px;" onclick="showShopsList()">⬅️ العودة للرئيسية</button>
+
+        <div class="card" style="border-right: 4px solid var(--secondary);">
+          <div class="card-title" style="margin-bottom:6px;">
+            <span id="trackOrderTitle">📍 تتبع الطلب المباشر</span>
+            <span class="status-badge" id="trackStatusBadge">جاري التجهيز</span>
+          </div>
+          <div style="font-size:0.85rem; color:var(--text-muted);" id="trackOrderSub">
+            السائق: <strong id="trackDriverName">أحمد السائق</strong> • <span id="trackDriverPhone"></span>
+          </div>
+
+          <!-- Live Progress Stepper -->
+          <div class="stepper">
+            <div class="step active" id="step1">
+              <div class="step-icon">1</div>
+              <span>تم الطلب</span>
+            </div>
+            <div class="step" id="step2">
+              <div class="step-icon">2</div>
+              <span>تأكيد المتجر</span>
+            </div>
+            <div class="step" id="step3">
+              <div class="step-icon">3</div>
+              <span>قيد التوصيل 🛵</span>
+            </div>
+            <div class="step" id="step4">
+              <div class="step-icon">4</div>
+              <span>تم التسليم ✅</span>
+            </div>
+          </div>
+
+          <!-- Live Map -->
+          <div style="position:relative;">
+            <div id="trackingMap"></div>
+            <div style="position:absolute; top:18px; left:18px; z-index:1000; background:rgba(255,255,255,0.9); padding:4px 8px; border-radius:6px; font-size:0.75rem; font-weight:bold; color:var(--secondary); box-shadow:0 1px 4px rgba(0,0,0,0.2);">
+              🔴 بث مباشر Live (WebSocket)
+            </div>
+          </div>
+
+          <div style="background:#f1f5f9; padding:10px; border-radius:8px; margin-top:10px; font-size:0.85rem;">
+            <div>📍 <strong>وجهة التوصيل:</strong> <span id="trackNeighborhood"></span> (<span id="trackDesc"></span>)</div>
+            <div>💵 <strong>المبلغ المطلوب عند الاستلام:</strong> <strong id="trackTotal"></strong></div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- VIEW 2: Driver Mode -->
     <div id="driverView" style="display:none;">
       <div class="card">
-        <div class="card-title">🛵 وضع السائق (توصيل الطلبات)</div>
+        <div class="card-title">🛵 لوحة تحكم السائق (بث مباشر)</div>
         <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
-          فعّل تواجدك كسائق لتظهر على خريطة سور الغزلان للزبائن ويتم اختيارك مباشرة.
+          فعّل تواجدك كسائق لتظهر على خريطة سور الغزلان للزبائن ويتم تتبع موقعك لحظة بلحظة.
         </p>
         <label style="font-size:0.85rem;">رقم هاتف السائق:</label>
         <input type="text" id="driverPhoneInput" value="0552222222">
         <button class="btn-secondary" onclick="activateDriverLocation()">📍 تفعيل موقعي كـ سائق متاح الآن</button>
         <div id="driverStatusMsg" style="margin-top:8px; font-size:0.85rem; color:var(--secondary);"></div>
+
+        <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:12px;">
+          <div style="font-weight:bold; font-size:0.9rem; margin-bottom:6px;">🎮 محاكاة حركة السائق نحو الزبون:</div>
+          <button style="background:#3b82f6;" onclick="stepSimulateMovement()">🛵 تحريك السائق خطوة نحو الزبون (Live Broadcast)</button>
+        </div>
       </div>
 
       <div class="card">
@@ -308,7 +390,7 @@
     </div>
   </div>
 
-  <!-- MODAL: Driver Selection on Map (Tنبثق عند اختيار المنتج والطلب) -->
+  <!-- MODAL: Driver Selection on Map -->
   <div class="modal-overlay" id="driverModal">
     <div class="modal-sheet">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -384,6 +466,7 @@
 
   <script>
     const API = window.location.origin + '/api';
+    const WS_URL = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws';
     const SOUR_LAT = 36.1480;
     const SOUR_LNG = 3.6900;
 
@@ -401,8 +484,60 @@
     let modalMap = null;
     let modalMarkersLayer = null;
 
+    // Tracking Map variables
+    let trackingMap = null;
+    let trackingDriverMarker = null;
+    let trackingDestMarker = null;
+    let trackingRouteLine = null;
+    let activeTrackedOrder = null;
+    let currentDriverLat = SOUR_LAT;
+    let currentDriverLng = SOUR_LNG;
+
+    // WebSocket connection
+    let ws = null;
+
+    function connectWebSocket() {
+      try {
+        ws = new WebSocket(WS_URL);
+        ws.onopen = () => {
+          console.log('[WS] Connected to live server');
+        };
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('[WS] Received:', data);
+
+            // Live Driver Location Update
+            if (data.type === 'DRIVER_LOCATION') {
+              if (activeTrackedOrder && activeTrackedOrder.driver_id == data.driverId) {
+                updateLiveDriverPosition(data.location.lat, data.location.lng);
+              }
+            }
+
+            // Live Order Status Update
+            if (data.type === 'ORDER_UPDATE') {
+              if (activeTrackedOrder && activeTrackedOrder.id == data.order.id) {
+                activeTrackedOrder.status = data.order.status;
+                updateTrackingStepper(data.order.status);
+              }
+              loadCustomerOrders();
+              if (driverToken) loadDriverOrders();
+            }
+          } catch (e) {
+            console.error('WS parse error', e);
+          }
+        };
+        ws.onclose = () => {
+          setTimeout(connectWebSocket, 3000); // Auto reconnect
+        };
+      } catch (err) {
+        console.error('WS connection error', err);
+      }
+    }
+
     // Bootstrap Customer Authentication
     async function initAuth() {
+      connectWebSocket();
       try {
         const otpRes = await fetch(API + '/auth/send-otp', {
           method: 'POST',
@@ -459,7 +594,7 @@
       }
     }
 
-    // Open Shop Page (Displaying all products for that shop)
+    // Open Shop Page
     async function openShopPage(shop) {
       currentShop = shop;
       cart = {};
@@ -467,6 +602,7 @@
       document.getElementById('currentShopDesc').textContent = `📍 ${shop.address_description || 'سور الغزلان'} (${shop.category || 'متجر'})`;
 
       document.getElementById('shopsListView').style.display = 'none';
+      document.getElementById('trackingView').style.display = 'none';
       document.getElementById('singleShopView').style.display = 'block';
 
       const prodContainer = document.getElementById('currentShopProducts');
@@ -508,10 +644,11 @@
 
     function showShopsList() {
       document.getElementById('singleShopView').style.display = 'none';
+      document.getElementById('trackingView').style.display = 'none';
       document.getElementById('shopsListView').style.display = 'block';
     }
 
-    // Cart Quantity Management
+    // Cart Management
     function changeQty(productId, delta) {
       const current = cart[productId] || 0;
       const updated = Math.max(0, current + delta);
@@ -547,7 +684,7 @@
       }
     }
 
-    // Open Driver Selection Modal
+    // Modal Driver Selection
     async function openDriverModal() {
       const total = calculateCartTotal();
       if (total <= 0) return alert('الرجاء اختيار منتج واحد على الأقل');
@@ -564,7 +701,6 @@
       document.getElementById('driverModal').style.display = 'none';
     }
 
-    // Initialize Map in Modal
     function initModalMap() {
       if (modalMap) {
         setTimeout(() => modalMap.invalidateSize(), 150);
@@ -588,7 +724,6 @@
       setTimeout(() => modalMap.invalidateSize(), 200);
     }
 
-    // Load Available Drivers in Modal
     async function loadModalDrivers() {
       try {
         const res = await fetch(API + '/drivers/available', {
@@ -611,7 +746,6 @@
         return;
       }
 
-      // Default select first driver
       if (!selectedDriverId && availableDrivers.length > 0) {
         selectedDriverId = availableDrivers[0].id;
       }
@@ -621,7 +755,6 @@
         const lat = parseFloat(d.lat) || SOUR_LAT;
         const lng = parseFloat(d.lng) || SOUR_LNG;
 
-        // Leaflet marker
         const icon = L.divIcon({
           className: 'custom-driver-icon',
           html: '<div style="background:#0284c7; color:white; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:16px; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.3);">🛵</div>',
@@ -633,7 +766,6 @@
         marker.bindPopup(`<strong>${d.full_name}</strong><br>📞 ${d.phone}`);
         marker.on('click', () => pickDriver(d.id));
 
-        // Choice Row
         const choice = document.createElement('div');
         choice.className = 'driver-choice' + (selectedDriverId === d.id ? ' active' : '');
         choice.onclick = () => pickDriver(d.id);
@@ -653,7 +785,7 @@
       renderModalDrivers();
     }
 
-    // Submit Order with Driver
+    // Submit Order & Automatically Open Live Tracking
     async function confirmOrderWithDriver() {
       if (!selectedDriverId) return alert('الرجاء اختيار سائق من القائمة أو الخريطة');
 
@@ -685,8 +817,8 @@
 
         if (res.success) {
           closeDriverModal();
-          alert(`🎉 تم إرسال طلبك بنجاح برقم #${res.order.id} مع السائق المختار!\nالمبلغ الإجمالي للدفع عند الاستلام: ${res.order.total_amount_da} دج`);
-          showShopsList();
+          alert(`🎉 تم إرسال طلبك بنجاح برقم #${res.order.id} مع السائق المختار! سيتم نقلك لشاشة التتبع المباشر.`);
+          openTrackingScreen(res.order);
           loadCustomerOrders();
         } else {
           alert('خطأ: ' + (res.error || 'فشل إرسال الطلب'));
@@ -696,7 +828,122 @@
       }
     }
 
-    // Customer Orders
+    // ==========================================
+    // 🗺️ LIVE ORDER & DRIVER TRACKING SCREEN
+    // ==========================================
+    function openTrackingScreen(order) {
+      activeTrackedOrder = order;
+      document.getElementById('shopsListView').style.display = 'none';
+      document.getElementById('singleShopView').style.display = 'none';
+      document.getElementById('trackingView').style.display = 'block';
+
+      document.getElementById('trackOrderTitle').textContent = `📍 تتبع مباشر للطلب #${order.id}`;
+      document.getElementById('trackDriverName').textContent = order.driver_name || 'أحمد السائق';
+      document.getElementById('trackDriverPhone').textContent = order.driver_phone ? `📞 ${order.driver_phone}` : '';
+      document.getElementById('trackNeighborhood').textContent = order.delivery_neighborhood;
+      document.getElementById('trackDesc').textContent = order.delivery_description || 'بدون وصف';
+      document.getElementById('trackTotal').textContent = `${order.total_amount_da} دج`;
+
+      updateTrackingStepper(order.status);
+      initTrackingMap(order);
+    }
+
+    function updateTrackingStepper(status) {
+      const badge = document.getElementById('trackStatusBadge');
+      badge.className = 'status-badge status-' + status;
+      badge.textContent = translateStatus(status);
+
+      const s1 = document.getElementById('step1');
+      const s2 = document.getElementById('step2');
+      const s3 = document.getElementById('step3');
+      const s4 = document.getElementById('step4');
+
+      [s1, s2, s3, s4].forEach(s => { s.className = 'step'; });
+
+      s1.classList.add('done');
+      if (status === 'NEW') {
+        s1.classList.add('active');
+      } else if (status === 'CONFIRMED') {
+        s2.classList.add('done', 'active');
+      } else if (status === 'OUT_FOR_DELIVERY') {
+        s2.classList.add('done');
+        s3.classList.add('done', 'active');
+      } else if (status === 'DELIVERED') {
+        s2.classList.add('done');
+        s3.classList.add('done');
+        s4.classList.add('done', 'active');
+      }
+    }
+
+    function initTrackingMap(order) {
+      const destLat = parseFloat(order.delivery_lat) || (SOUR_LAT + 0.005);
+      const destLng = parseFloat(order.delivery_lng) || (SOUR_LNG + 0.005);
+
+      if (!trackingMap) {
+        trackingMap = L.map('trackingMap').setView([SOUR_LAT, SOUR_LNG], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap'
+        }).addTo(trackingMap);
+      }
+
+      setTimeout(() => trackingMap.invalidateSize(), 200);
+
+      // Customer Destination Marker
+      const homeIcon = L.divIcon({
+        html: '<div style="background:#ef4444; color:white; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:16px; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.3);">🏠</div>',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+
+      if (trackingDestMarker) trackingMap.removeLayer(trackingDestMarker);
+      trackingDestMarker = L.marker([destLat, destLng], { icon: homeIcon }).addTo(trackingMap);
+      trackingDestMarker.bindPopup(`<b>مكان التوصيل</b><br>${order.delivery_neighborhood}`);
+
+      // Driver Live Marker
+      const motoIcon = L.divIcon({
+        html: '<div id="liveDriverMarker" style="background:#0284c7; color:white; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-size:18px; border:2px solid white; box-shadow:0 3px 8px rgba(0,0,0,0.4); transition: transform 0.4s ease-out;">🛵</div>',
+        iconSize: [36, 36],
+        iconAnchor: [18, 18]
+      });
+
+      if (trackingDriverMarker) trackingMap.removeLayer(trackingDriverMarker);
+      trackingDriverMarker = L.marker([currentDriverLat, currentDriverLng], { icon: motoIcon }).addTo(trackingMap);
+      trackingDriverMarker.bindPopup(`<b>السائق في طريقه إليك</b><br>🛵 ${order.driver_name || 'أحمد'}`);
+
+      // Route Line
+      if (trackingRouteLine) trackingMap.removeLayer(trackingRouteLine);
+      trackingRouteLine = L.polyline([
+        [currentDriverLat, currentDriverLng],
+        [destLat, destLng]
+      ], { color: '#0284c7', weight: 4, dashArray: '6, 8', opacity: 0.8 }).addTo(trackingMap);
+
+      const bounds = L.latLngBounds([
+        [currentDriverLat, currentDriverLng],
+        [destLat, destLng]
+      ]);
+      trackingMap.fitBounds(bounds, { padding: [40, 40] });
+    }
+
+    // Move Driver Live on Customer Map
+    function updateLiveDriverPosition(newLat, newLng) {
+      currentDriverLat = parseFloat(newLat);
+      currentDriverLng = parseFloat(newLng);
+
+      if (trackingDriverMarker && trackingMap) {
+        trackingDriverMarker.setLatLng([currentDriverLat, currentDriverLng]);
+
+        if (trackingDestMarker && trackingRouteLine) {
+          const destLatLng = trackingDestMarker.getLatLng();
+          trackingRouteLine.setLatLngs([
+            [currentDriverLat, currentDriverLng],
+            [destLatLng.lat, destLatLng.lng]
+          ]);
+        }
+      }
+    }
+
+    // Customer Orders History
     async function loadCustomerOrders() {
       if (!customerToken) return;
       try {
@@ -719,11 +966,14 @@
               <strong>طلب #${o.id} - ${o.shop_name || 'متجر'}</strong>
               <span class="status-badge status-${o.status}">${translateStatus(o.status)}</span>
             </div>
-            <div style="font-size:0.85rem; color:var(--text-muted);">
+            <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:8px;">
               🛵 السائق: <strong>${o.driver_name || 'لم يُحدد'}</strong> (${o.driver_phone || ''})<br>
               📍 العنوان: ${o.delivery_neighborhood} (${o.delivery_description || ''})<br>
               💵 الإجمالي: <strong>${o.total_amount_da} دج</strong> (الدفع عند الاستلام)
             </div>
+            <button class="btn-outline" style="padding:6px 12px; font-size:0.85rem;" onclick='openTrackingScreen(${JSON.stringify(o).replace(/'/g, "&apos;")})'>
+              📍 تتبع موقع السائق Live على الخريطة
+            </button>
           `;
           cont.appendChild(card);
         });
@@ -732,8 +982,8 @@
 
     function translateStatus(s) {
       const map = {
-        'NEW': 'جديد',
-        'CONFIRMED': 'تم التأكيد',
+        'NEW': 'جديد 📝',
+        'CONFIRMED': 'تم التأكيد 🍳',
         'OUT_FOR_DELIVERY': 'قيد التوصيل 🛵',
         'DELIVERED': 'تم التوصيل بنجاح ✅',
         'CANCELLED': 'ملغى ❌'
@@ -764,24 +1014,47 @@
 
         driverToken = authRes.token;
 
-        const offsetLat = (Math.random() - 0.5) * 0.008;
-        const offsetLng = (Math.random() - 0.5) * 0.008;
-        const lat = SOUR_LAT + offsetLat;
-        const lng = SOUR_LNG + offsetLng;
-
         await fetch(API + '/drivers/location', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ' + driverToken
           },
-          body: JSON.stringify({ lat, lng, heading: 90 })
+          body: JSON.stringify({ lat: SOUR_LAT, lng: SOUR_LNG, heading: 90 })
         });
 
-        document.getElementById('driverStatusMsg').textContent = `✅ أنت متصل الآن كسائق متاح في سور الغزلان (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+        document.getElementById('driverStatusMsg').textContent = `✅ أنت متصل الآن كسائق متاح في سور الغزلان (${SOUR_LAT.toFixed(4)}, ${SOUR_LNG.toFixed(4)})`;
         loadDriverOrders();
       } catch (e) {
         alert('خطأ في تفعيل السائق');
+      }
+    }
+
+    // Driver Simulator: Moves the driver closer step by step
+    let simSteps = 0;
+    async function stepSimulateMovement() {
+      if (!driverToken) {
+        await activateDriverLocation();
+      }
+
+      simSteps += 1;
+      // Move driver along town towards neighborhood
+      currentDriverLat += 0.0012;
+      currentDriverLng += 0.0010;
+
+      try {
+        await fetch(API + '/drivers/location', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + driverToken
+          },
+          body: JSON.stringify({ lat: currentDriverLat, lng: currentDriverLng, heading: 45 })
+        });
+
+        document.getElementById('driverStatusMsg').textContent = `🛵 تحرك السائق (خطوة ${simSteps}): تم بث الإحداثيات (${currentDriverLat.toFixed(4)}, ${currentDriverLng.toFixed(4)}) مباشرة للزبون!`;
+      } catch (e) {
+        console.error('Sim error', e);
       }
     }
 
@@ -847,7 +1120,6 @@
       if (!name || !price) return alert('الرجاء إدخال اسم المنتج والسعر');
 
       try {
-        // Authenticate as shop owner
         if (!shopToken) {
           const otpRes = await fetch(API + '/auth/send-otp', {
             method: 'POST',

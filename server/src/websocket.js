@@ -58,17 +58,9 @@ function broadcastOrderStatus(order) {
     order
   });
 
-  for (const [ws, info] of clients.entries()) {
-    if (ws.readyState === ws.OPEN) {
-      // Notify admin, or the customer who owns the order, or driver assigned, or anyone watching orderId
-      if (
-        info.role === 'ADMIN' ||
-        info.userId === order.customer_id ||
-        info.userId === order.driver_id ||
-        info.subscribedOrder == order.id
-      ) {
-        ws.send(payload);
-      }
+  for (const client of wss.clients) {
+    if (client.readyState === 1) { // WebSocket.OPEN
+      client.send(payload);
     }
   }
 }
@@ -81,14 +73,12 @@ function broadcastDriverLocation(driverId, location) {
     location
   });
 
-  for (const [ws, info] of clients.entries()) {
-    if (ws.readyState === ws.OPEN) {
-      // Admin sees all drivers, or customer whose active order is assigned to driver
-      if (info.role === 'ADMIN' || info.subscribedDriver === driverId) {
-        ws.send(payload);
-      }
+  for (const client of wss.clients) {
+    if (client.readyState === 1) { // WebSocket.OPEN
+      client.send(payload);
     }
   }
 }
 
 module.exports = { initWebSocket, broadcastOrderStatus, broadcastDriverLocation };
+
