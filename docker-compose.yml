@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sour_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-sour_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-sour_delivery}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sour_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-sour_admin} -d ${DB_NAME:-sour_delivery}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: sour_backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sour_net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: sour_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+    networks:
+      - sour_net
+
+volumes:
+  postgres_data:
+    name: sour_postgres_data
+  caddy_data:
+    name: sour_caddy_data
+  caddy_config:
+    name: sour_caddy_config
+
+networks:
+  sour_net:
+    name: sour_network
+    driver: bridge

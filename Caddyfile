@@ -1,0 +1,7 @@
+{
+    email admin@sour.serveirc.com
+}
+
+sour.serveirc.com, localhost {
+    reverse_proxy backend:3000
+}
