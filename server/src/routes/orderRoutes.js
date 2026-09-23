@@ -63,18 +63,21 @@ router.post('/', authMiddleware, async (req, res) => {
     const deliveryFee = parseFloat(process.env.FIXED_DELIVERY_FEE || '200');
     const totalAmount = itemsTotal + deliveryFee;
     const zoneId = shop.zone_id || process.env.DEFAULT_ZONE_ID || 'sour_el_ghozlane';
+    const initialStatus = req.body.driver_id ? 'CONFIRMED' : 'NEW';
 
     // Insert order
     const orderRes = await client.query(
       `INSERT INTO orders (
-        customer_id, shop_id, status, zone_id,
+        customer_id, shop_id, driver_id, status, zone_id,
         delivery_neighborhood, delivery_description, delivery_lat, delivery_lng,
         items_total_da, delivery_fee_da, total_amount_da, payment_method, notes
-      ) VALUES ($1, $2, 'NEW', $3, $4, $5, $6, $7, $8, $9, $10, 'COD', $11)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'COD', $13)
       RETURNING *`,
       [
         req.user.id,
         shop_id,
+        req.body.driver_id || null,
+        initialStatus,
         zoneId,
         delivery_neighborhood,
         delivery_description || '',
@@ -172,6 +175,47 @@ router.get('/:id', authMiddleware, async (req, res) => {
     res.json({ order });
   } catch (err) {
     res.status(500).json({ error: 'خطأ في جلب تفاصيل الطلب' });
+  }
+});
+
+// Customer selects driver for their order
+router.post('/:id/select-driver', authMiddleware, async (req, res) => {
+  const { driver_id } = req.body;
+  if (!driver_id) return res.status(400).json({ error: 'يرجى اختيار السائق' });
+
+  try {
+    // Verify order belongs to customer (or user is ADMIN)
+    const orderCheck = await pool.query('SELECT * FROM orders WHERE id = $1', [req.params.id]);
+    if (orderCheck.rowCount === 0) return res.status(404).json({ error: 'الطلب غير موجود' });
+    const order = orderCheck.rows[0];
+
+    if (req.user.role !== 'ADMIN' && order.customer_id !== req.user.id) {
+      return res.status(403).json({ error: 'غير مصرح لك بتعديل هذا الطلب' });
+    }
+
+    if (!['NEW', 'CONFIRMED'].includes(order.status)) {
+      return res.status(400).json({ error: 'لا يمكن تغيير السائق بعد انطلاق التوصيل' });
+    }
+
+    // Verify driver exists and is DRIVER
+    const driverCheck = await pool.query('SELECT id, full_name, phone FROM users WHERE id = $1 AND role = $2', [driver_id, 'DRIVER']);
+    if (driverCheck.rowCount === 0) return res.status(404).json({ error: 'السائق المختار غير متوفر' });
+
+    const orderRes = await pool.query(
+      `UPDATE orders 
+       SET driver_id = $1, status = 'CONFIRMED', updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      [driver_id, req.params.id]
+    );
+
+    const updated = orderRes.rows[0];
+    broadcastOrderStatus(updated);
+
+    res.json({ success: true, order: updated, message: 'تم تعيين السائق للطلب بنجاح' });
+  } catch (err) {
+    console.error('Error selecting driver:', err);
+    res.status(500).json({ error: 'خطأ في تعيين السائق' });
   }
 });
 

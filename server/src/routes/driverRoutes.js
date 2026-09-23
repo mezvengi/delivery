@@ -29,6 +29,25 @@ router.post('/location', authMiddleware, requireRole('DRIVER'), async (req, res)
   }
 });
 
+// List available online drivers on map (for Customers & Admin)
+router.get('/available', authMiddleware, async (req, res) => {
+  const zoneId = req.query.zone_id || process.env.DEFAULT_ZONE_ID || 'sour_el_ghozlane';
+  try {
+    const result = await pool.query(`
+      SELECT u.id, u.full_name, u.phone, u.zone_id,
+             dl.lat, dl.lng, dl.heading, dl.updated_at as last_seen
+      FROM users u
+      JOIN driver_locations dl ON u.id = dl.driver_id
+      WHERE u.role = 'DRIVER' AND dl.is_online = TRUE AND u.zone_id = $1
+      ORDER BY dl.updated_at DESC
+    `, [zoneId]);
+    res.json({ drivers: result.rows });
+  } catch (err) {
+    console.error('Error fetching available drivers:', err);
+    res.status(500).json({ error: 'خطأ في جلب السائقين المتوفرين' });
+  }
+});
+
 // List all drivers (Admin only)
 router.get('/', authMiddleware, requireRole('ADMIN'), async (req, res) => {
   try {
