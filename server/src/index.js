@@ -6,6 +6,7 @@ const { initDB } = require('./db');
 const { initWebSocket } = require('./websocket');
 
 const authRoutes = require('./routes/authRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 const zoneRoutes = require('./routes/zoneRoutes');
 const shopRoutes = require('./routes/shopRoutes');
 const orderRoutes = require('./routes/orderRoutes');
@@ -43,6 +44,9 @@ app.get('/', (req, res) => {
 
 // Mount API routes
 app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/admin', adminRoutes);
 app.use('/api/zones', zoneRoutes);
 app.use('/api/shops', shopRoutes);
 app.use('/api/orders', orderRoutes);

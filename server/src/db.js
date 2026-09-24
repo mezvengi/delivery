@@ -21,10 +21,14 @@ async function initDB() {
         phone VARCHAR(20) UNIQUE NOT NULL,
         full_name VARCHAR(100),
         password_hash VARCHAR(255),
-        role VARCHAR(20) NOT NULL DEFAULT 'CUSTOMER', -- CUSTOMER, DRIVER, SHOP, ADMIN
+        role VARCHAR(20) NOT NULL DEFAULT 'customer', -- customer, driver, store, admin
+        status VARCHAR(20) NOT NULL DEFAULT 'active', -- pending, active, suspended
         zone_id VARCHAR(50) NOT NULL DEFAULT 'sour_el_ghozlane',
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
     `);
 
     // OTP table
@@ -118,6 +122,47 @@ async function initDB() {
       );
     `);
 
+    // Profile & RBAC tables
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS customers (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        address TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS drivers (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        vehicle_type VARCHAR(50) NOT NULL DEFAULT 'moto',
+        license_plate VARCHAR(50) NOT NULL DEFAULT 'غير محدد',
+        is_available BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS stores (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+        name VARCHAR(150) NOT NULL,
+        category VARCHAR(50) DEFAULT 'general',
+        address TEXT,
+        phone VARCHAR(20),
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS refresh_tokens (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token_hash VARCHAR(255) NOT NULL,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        revoked BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+      CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
+    `);
+
     // Seed default admin account if not existing
     const adminPhone = process.env.ADMIN_PHONE || '+213555000000';
     const adminPass = process.env.ADMIN_PASSWORD || 'AdminSour2026!';
@@ -125,8 +170,8 @@ async function initDB() {
     if (existingAdmin.rowCount === 0) {
       const hashed = await bcrypt.hash(adminPass, 10);
       await client.query(`
-        INSERT INTO users (phone, full_name, password_hash, role, zone_id)
-        VALUES ($1, $2, $3, 'ADMIN', $4)
+        INSERT INTO users (phone, full_name, password_hash, role, status, zone_id)
+        VALUES ($1, $2, $3, 'admin', 'active', $4)
       `, [adminPhone, 'مسؤول النظام (سور الغزلان)', hashed, process.env.DEFAULT_ZONE_ID || 'sour_el_ghozlane']);
       console.log(`[DB] Default admin account seeded: ${adminPhone}`);
     }
