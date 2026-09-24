@@ -25,3 +25,5 @@ caddy_config/
 Thumbs.db
 .vscode/
 .idea/
+backups/
+*.sql
