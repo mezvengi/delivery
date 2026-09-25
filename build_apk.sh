@@ -13,6 +13,8 @@ $BUILD_TOOLS/aapt2 compile --dir "$APP_DIR/res" -o /app/build/compiled_res.zip
 echo "2. Linking resources and manifest..."
 $BUILD_TOOLS/aapt2 link -I "$ANDROID_JAR" \
     /app/build/compiled_res.zip \
+    --min-sdk-version 21 \
+    --target-sdk-version 34 \
     --manifest "$APP_DIR/AndroidManifest.xml" \
     --java /app/build/gen \
     -o /app/build/apk/unaligned.apk
