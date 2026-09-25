@@ -37,8 +37,9 @@ $BUILD_TOOLS/zipalign -f -p 4 unaligned.apk aligned.apk
 echo "7. Generating keystore and signing APK..."
 keytool -genkey -v -keystore /app/build/debug.keystore -alias androiddebugkey -keypass android -storepass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=SourDelivery,O=Sour,C=DZ"
 
-$BUILD_TOOLS/apksigner sign --ks /app/build/debug.keystore --ks-pass pass:android --ks-key-alias androiddebugkey --key-pass pass:android --out /app/sour-delivery.apk aligned.apk
+$BUILD_TOOLS/apksigner sign --ks /app/build/debug.keystore --ks-pass pass:android --ks-key-alias androiddebugkey --key-pass pass:android --out /app/SGdelivery.apk aligned.apk
+cp /app/SGdelivery.apk /app/sour-delivery.apk
 
-echo "=== APK BUILT AND SIGNED SUCCESSFULLY ==="
-$BUILD_TOOLS/apksigner verify -v /app/sour-delivery.apk
-ls -lh /app/sour-delivery.apk
+echo "=== SGdelivery APK BUILT AND SIGNED SUCCESSFULLY ==="
+$BUILD_TOOLS/apksigner verify -v /app/SGdelivery.apk
+ls -lh /app/SGdelivery.apk
