@@ -398,9 +398,11 @@ router.post('/send-otp', async (req, res) => {
     const result = await sendOTP(phone);
     res.json({
       success: true,
-      message: 'تم إرسال كود التحقق بنجاح',
+      message: 'تم توليد كود التحقق بنجاح',
       phone: result.phone,
-      mock_code: result.mockCode
+      code: result.code,
+      whatsapp_url: result.whatsappUrl,
+      telegram_url: result.telegramUrl
     });
   } catch (err) {
     console.error('Error sending OTP:', err);
@@ -409,7 +411,7 @@ router.post('/send-otp', async (req, res) => {
 });
 
 router.post('/verify-otp', async (req, res) => {
-  const { phone, code, full_name, role } = req.body;
+  const { phone, code, full_name, role, password, address, vehicle_type, license_plate, store_category } = req.body;
   if (!phone || !code) {
     return res.status(400).json({ error: 'رقم الهاتف وكود التحقق مطلوبان' });
   }
@@ -429,19 +431,32 @@ router.post('/verify-otp', async (req, res) => {
         ? role.toLowerCase()
         : 'customer';
       const initialStatus = assignedRole === 'customer' ? 'active' : 'pending';
+      const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
 
       const insertRes = await pool.query(
-        `INSERT INTO users (phone, full_name, role, status, zone_id)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO users (phone, password_hash, full_name, role, status, zone_id)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING *`,
-        [normalized, full_name || 'مستخدم جديد', assignedRole, initialStatus, process.env.DEFAULT_ZONE_ID || 'sour_el_ghozlane']
+        [normalized, hashedPassword, full_name || 'مستخدم جديد', assignedRole, initialStatus, process.env.DEFAULT_ZONE_ID || 'sour_el_ghozlane']
       );
       user = insertRes.rows[0];
 
       if (assignedRole === 'customer') {
-        await pool.query('INSERT INTO customers (user_id) VALUES ($1) ON CONFLICT DO NOTHING', [user.id]);
+        await pool.query('INSERT INTO customers (user_id, address) VALUES ($1, $2) ON CONFLICT DO NOTHING', [user.id, address || 'سور الغزلان']);
       } else if (assignedRole === 'driver') {
-        await pool.query('INSERT INTO drivers (user_id) VALUES ($1) ON CONFLICT DO NOTHING', [user.id]);
+        await pool.query(
+          'INSERT INTO drivers (user_id, vehicle_type, license_plate, is_available) VALUES ($1, $2, $3, FALSE) ON CONFLICT DO NOTHING',
+          [user.id, vehicle_type || 'دراجة SYM', license_plate || 'DZ-10']
+        );
+      } else if (assignedRole === 'store') {
+        await pool.query(
+          'INSERT INTO stores (user_id, name, category, address, phone, is_active) VALUES ($1, $2, $3, $4, $5, FALSE) ON CONFLICT DO NOTHING',
+          [user.id, full_name || 'متجر جديد', store_category || 'general', address || 'سور الغزلان', normalized]
+        );
+        await pool.query(
+          'INSERT INTO shops (user_id, name, category, address_description, zone_id, is_active) VALUES ($1, $2, $3, $4, $5, FALSE) ON CONFLICT DO NOTHING',
+          [user.id, full_name || 'متجر جديد', store_category || 'general', address || 'سور الغزلان', process.env.DEFAULT_ZONE_ID || 'sour_el_ghozlane']
+        );
       }
     } else {
       user = userRes.rows[0];

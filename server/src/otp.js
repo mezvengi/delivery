@@ -16,33 +16,28 @@ function normalizePhone(phone) {
 async function sendOTP(phone) {
   const normalized = normalizePhone(phone);
   const code = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
 
   await pool.query(
     'INSERT INTO otps (phone, code, expires_at) VALUES ($1, $2, $3)',
     [normalized, code, expiresAt]
   );
 
-  const channel = process.env.OTP_CHANNEL || 'mock';
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  const adminWhatsAppPhone = process.env.ADMIN_WHATSAPP_PHONE || '213555000000';
+  const telegramBotUsername = process.env.TELEGRAM_BOT_USERNAME || 'SGdelivery_bot';
 
-  console.log(`[OTP] Generated OTP for ${normalized}: ${code} (Channel: ${channel})`);
+  const whatsappText = encodeURIComponent(`السلام عليكم، كود تفعيل حسابي في تطبيق SGdelivery لسور الغزلان هو: *${code}* (رقم هاتفي: ${normalized})`);
+  const whatsappUrl = `https://wa.me/${adminWhatsAppPhone}?text=${whatsappText}`;
+  const telegramUrl = `https://t.me/${telegramBotUsername}?start=verify_${code}`;
 
-  if (channel === 'telegram' && botToken) {
-    try {
-      // In production with Telegram, bot sends to registered user chatId or telegram channel
-      // We also log cleanly
-      console.log(`[OTP-Telegram] Sending OTP ${code} to Telegram`);
-    } catch (err) {
-      console.error('[OTP-Telegram] Error sending via Telegram:', err.message);
-    }
-  }
+  console.log(`[OTP] Generated OTP for ${normalized}: ${code}`);
 
   return {
     phone: normalized,
+    code,
     expiresAt,
-    // Return mock code if channel is mock to enable frictionless testing
-    mockCode: channel === 'mock' ? code : undefined
+    whatsappUrl,
+    telegramUrl
   };
 }
 
