@@ -23,15 +23,34 @@
         </div>
       </div>
       
-      <!-- Role Switcher -->
-      <div class="role-selector">
-        <label for="roleSelect">الدور الحالي:</label>
-        <select id="roleSelect" onchange="switchRole(this.value)">
-          <option value="customer">الزبون (تصفح وطلب)</option>
-          <option value="shop">المتجر (استقبال وتحضير)</option>
-          <option value="driver">السائق (توصيل وبث GPS)</option>
-          <option value="admin">الإدارة (مراقبة وتوزيع)</option>
-        </select>
+      <!-- Header Actions: Theme Toggle, User Profile, Role Selector -->
+      <div class="header-actions">
+        <!-- Theme Toggle Button -->
+        <button id="themeToggleBtn" class="theme-toggle-btn" onclick="toggleTheme()" title="تبديل الوضع">
+          🌙 الوضع الداكن
+        </button>
+
+        <!-- User Profile / Login Button -->
+        <div id="authNavContainer">
+          <button id="loginNavBtn" class="btn btn-sm btn-primary" onclick="openAuthModal('login')">
+            🔑 تسجيل الدخول
+          </button>
+          <div id="userProfileBadge" class="user-profile-badge hidden">
+            <span id="userNameLabel">👤 حسابي</span>
+            <button class="logout-btn" onclick="logoutUser()" title="تسجيل الخروج">🚪</button>
+          </div>
+        </div>
+
+        <!-- Role Switcher -->
+        <div class="role-selector">
+          <label for="roleSelect">الدور:</label>
+          <select id="roleSelect" onchange="switchRole(this.value)">
+            <option value="customer">الزبون (تصفح وطلب)</option>
+            <option value="shop">المتجر (استقبال وتحضير)</option>
+            <option value="driver">السائق (توصيل وبث GPS)</option>
+            <option value="admin">الإدارة (مراقبة وتوزيع)</option>
+          </select>
+        </div>
       </div>
     </div>
   </header>
@@ -335,6 +354,111 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL: AUTHENTICATION (LOGIN & REGISTRATION) -->
+  <div id="authModal" class="modal-backdrop hidden">
+    <div class="modal-content auth-modal-content">
+      <div class="auth-header">
+        <div class="auth-logo-badge">🛵</div>
+        <h2>تطبيق SGdelivery</h2>
+        <p>المنصة الموحدة لتوصيل الطلبات - سور الغزلان</p>
+      </div>
+
+      <!-- Auth Tabs -->
+      <div class="auth-tabs">
+        <button id="tabLoginBtn" class="auth-tab active" onclick="switchAuthTab('login')">تسجيل الدخول</button>
+        <button id="tabRegisterBtn" class="auth-tab" onclick="switchAuthTab('register')">حساب جديد</button>
+      </div>
+
+      <div id="authAlert" class="auth-alert hidden"></div>
+
+      <!-- Tab 1: Login Form -->
+      <form id="loginForm" class="auth-form" onsubmit="handleLoginSubmit(event)">
+        <div class="form-group">
+          <label for="loginPhone">رقم الهاتف (الجزائر):</label>
+          <input type="tel" id="loginPhone" class="form-control" placeholder="مثال: 0555000000 أو 06/07" required>
+        </div>
+        <div class="form-group">
+          <label for="loginPassword">كلمة المرور:</label>
+          <input type="password" id="loginPassword" class="form-control" placeholder="••••••••" required>
+        </div>
+        <button type="submit" id="loginSubmitBtn" class="btn btn-primary btn-block">
+          دخول إلى حسابي ➔
+        </button>
+        <div style="text-align: center; margin-top: 14px;">
+          <button type="button" class="btn btn-outline btn-block" onclick="closeAuthModalGuest()">
+            المتابعة كزائر (تصفح فقط) 🛒
+          </button>
+        </div>
+      </form>
+
+      <!-- Tab 2: Register Form -->
+      <form id="registerForm" class="auth-form hidden" onsubmit="handleRegisterSubmit(event)">
+        <div class="form-group">
+          <label>نوع الحساب المطلوب:</label>
+          <select id="regRoleSelect" class="form-control" onchange="handleRegRoleChange(this.value)">
+            <option value="customer">زبون (طلب وتوصيل للمنزل)</option>
+            <option value="store">صاحب متجر أو مطعم</option>
+            <option value="driver">سائق توصيل (دراجة نارية)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label id="regNameLabel">الاسم الكامل:</label>
+          <input type="text" id="regName" class="form-control" placeholder="الاسم الكامل" required>
+        </div>
+
+        <div class="form-group">
+          <label>رقم الهاتف الجزائري:</label>
+          <input type="tel" id="regPhone" class="form-control" placeholder="05XXXXXXXX / 06 / 07" required>
+        </div>
+
+        <div class="form-group">
+          <label>كلمة المرور:</label>
+          <input type="password" id="regPassword" class="form-control" placeholder="6 أحرف أو أرقام على الأقل" minlength="6" required>
+        </div>
+
+        <!-- Store-specific field -->
+        <div id="storeFieldsGroup" class="form-group hidden">
+          <label>تصنيف المتجر أو المطعم:</label>
+          <select id="regStoreCategory" class="form-control">
+            <option value="bbq">🥩 شواء ومشويات</option>
+            <option value="pizza">🍕 بيتزا ومخبوزات</option>
+            <option value="fast_food">🍔 وجبات سريعة وبرغر</option>
+            <option value="sweets">🥐 حلويات ومرطبات</option>
+            <option value="general">🛒 عام / مواد غذائية</option>
+          </select>
+        </div>
+
+        <!-- Driver-specific fields -->
+        <div id="driverFieldsGroup" class="form-group hidden">
+          <label>نوع الدراجة أو المركبة:</label>
+          <input type="text" id="regVehicle" class="form-control" placeholder="مثال: SYM Symphony ST 150">
+          <label style="margin-top: 6px;">رقم اللوحة:</label>
+          <input type="text" id="regLicensePlate" class="form-control" placeholder="مثال: 12345-126-10">
+        </div>
+
+        <div class="form-group">
+          <label>الحي / العنوان في سور الغزلان:</label>
+          <select id="regNeighborhood" class="form-control">
+            <option value="وسط المدينة">وسط المدينة</option>
+            <option value="حي الوئام">حي الوئام</option>
+            <option value="حي 114 مسكن">حي 114 مسكن</option>
+            <option value="حي ذراع البرج">حي ذراع البرج</option>
+            <option value="حي عين مريم">حي عين مريم</option>
+            <option value="حي باب الجزائر">حي باب الجزائر</option>
+            <option value="حي باب البوسعادة">حي باب البوسعادة</option>
+            <option value="المنطقة الصناعية">المنطقة الصناعية</option>
+            <option value="حي النصر">حي النصر</option>
+          </select>
+        </div>
+
+        <button type="submit" id="regSubmitBtn" class="btn btn-primary btn-block">
+          إنشاء حساب وتأكيد ✅
+        </button>
+      </form>
     </div>
   </div>
 

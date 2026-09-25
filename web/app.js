@@ -99,6 +99,8 @@ async function fetchDriversFromApi() {
 
 // Initialize App
 window.addEventListener('DOMContentLoaded', () => {
+  initTheme();
+  initAuth();
   initOrderHistoryStorage();
   fetchShopsFromApi();
   fetchDriversFromApi();
@@ -125,45 +127,6 @@ function initOrderHistoryStorage() {
 
 function getDefaultPastOrders() {
   return [];
-}
-  return [
-    {
-      id: 1092,
-      orderNumber: '#SG-1092',
-      shopName: 'مطعم الأوراس للشواء والوجبات',
-      itemsSummary: '1x شواء نصف دجاجة على الفحم، 1x شربة فريك باللحم',
-      totalPrice: 1200,
-      deliveryFee: 200,
-      deliveryDate: '23 سبتمبر 2026 - 20:15',
-      status: 'تم التسليم بنجاح ✅',
-      neighborhood: 'حي الوئام',
-      driverName: 'أمين بوزيد'
-    },
-    {
-      id: 1088,
-      orderNumber: '#SG-1088',
-      shopName: 'بيتزا وبرغر البرج العائلي',
-      itemsSummary: '1x بيتزا سوبريم سور الغزلان عائلية، 1x بيبسي عائلي',
-      totalPrice: 1400,
-      deliveryFee: 200,
-      deliveryDate: '22 سبتمبر 2026 - 19:30',
-      status: 'تم التسليم بنجاح ✅',
-      neighborhood: 'حي 114 مسكن',
-      driverName: 'كريم منصوري'
-    },
-    {
-      id: 1075,
-      orderNumber: '#SG-1075',
-      shopName: 'فاست فود ومشاوي الوئام',
-      itemsSummary: '2x تاكوس جزائري مشكل، 1x كوكاكولا',
-      totalPrice: 1000,
-      deliveryFee: 200,
-      deliveryDate: '20 سبتمبر 2026 - 14:10',
-      status: 'تم التسليم بنجاح ✅',
-      neighborhood: 'وسط المدينة',
-      driverName: 'ياسين خليل'
-    }
-  ];
 }
 
 function updateOrderHistoryBadge() {
@@ -760,4 +723,304 @@ function initWebSocket() {
   } catch (err) {
     console.log('WebSocket connection error (mock mode active):', err);
   }
+}
+
+// ==========================================
+// THEME MANAGEMENT (DARK / LIGHT MODE)
+// ==========================================
+function initTheme() {
+  const saved = localStorage.getItem('sg_theme') || 'dark';
+  applyTheme(saved);
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const target = current === 'dark' ? 'light' : 'dark';
+  applyTheme(target);
+  localStorage.setItem('sg_theme', target);
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  const btn = document.getElementById('themeToggleBtn');
+  if (btn) {
+    btn.innerHTML = theme === 'dark' ? '☀️ الوضع الفاتح' : '🌙 الوضع الداكن';
+    btn.title = theme === 'dark' ? 'تفعيل الوضع الفاتح' : 'تفعيل الوضع الداكن';
+  }
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) {
+    metaTheme.setAttribute('content', theme === 'dark' ? '#0F172A' : '#EA580C');
+  }
+}
+
+// ==========================================
+// AUTHENTICATION & USER SESSIONS
+// ==========================================
+let currentAuthUser = null;
+
+function initAuth() {
+  const storedUser = localStorage.getItem('sg_auth_user');
+  if (storedUser) {
+    try {
+      currentAuthUser = JSON.parse(storedUser);
+      applyUserSession(currentAuthUser);
+      return;
+    } catch (e) {
+      currentAuthUser = null;
+    }
+  }
+
+  // Not logged in: Check if visitor already dismissed modal during this session
+  const isGuest = sessionStorage.getItem('sg_guest_browsing');
+  if (!isGuest) {
+    // Automatically show auth modal on first launch!
+    openAuthModal('login');
+  }
+  updateAuthNav(null);
+}
+
+function applyUserSession(user) {
+  currentAuthUser = user;
+  updateAuthNav(user);
+
+  // Auto-fill checkout fields
+  const nameInput = document.getElementById('custNameInput');
+  const phoneInput = document.getElementById('custPhoneInput');
+  if (nameInput && user.full_name) nameInput.value = user.full_name;
+  if (phoneInput && user.phone) phoneInput.value = user.phone;
+
+  // Auto-route role view
+  const role = (user.role || 'customer').toLowerCase();
+  const targetRole = (role === 'store' || role === 'shop') ? 'shop' : role;
+  const roleSelect = document.getElementById('roleSelect');
+  if (roleSelect) {
+    roleSelect.value = targetRole;
+  }
+  switchRole(targetRole);
+}
+
+function updateAuthNav(user) {
+  const loginBtn = document.getElementById('loginNavBtn');
+  const userBadge = document.getElementById('userProfileBadge');
+  const nameLabel = document.getElementById('userNameLabel');
+
+  if (user) {
+    if (loginBtn) loginBtn.classList.add('hidden');
+    if (userBadge) userBadge.classList.remove('hidden');
+    if (nameLabel) {
+      const roleArabic = {
+        'admin': 'الإدارة 👑',
+        'shop': 'المتجر 🏬',
+        'store': 'المتجر 🏬',
+        'driver': 'السائق 🛵',
+        'customer': 'الزبون 👤'
+      }[user.role] || user.role;
+      nameLabel.innerText = `${user.full_name || 'حسابي'} (${roleArabic})`;
+    }
+  } else {
+    if (loginBtn) loginBtn.classList.remove('hidden');
+    if (userBadge) userBadge.classList.add('hidden');
+  }
+}
+
+function openAuthModal(tab = 'login') {
+  const modal = document.getElementById('authModal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  switchAuthTab(tab);
+  setAuthAlert('');
+}
+
+function closeAuthModalGuest() {
+  const modal = document.getElementById('authModal');
+  if (modal) modal.classList.add('hidden');
+  sessionStorage.setItem('sg_guest_browsing', 'true');
+}
+
+function switchAuthTab(tab) {
+  const loginBtn = document.getElementById('tabLoginBtn');
+  const regBtn = document.getElementById('tabRegisterBtn');
+  const loginForm = document.getElementById('loginForm');
+  const regForm = document.getElementById('registerForm');
+
+  if (tab === 'login') {
+    if (loginBtn) loginBtn.classList.add('active');
+    if (regBtn) regBtn.classList.remove('active');
+    if (loginForm) loginForm.classList.remove('hidden');
+    if (regForm) regForm.classList.add('hidden');
+  } else {
+    if (regBtn) regBtn.classList.add('active');
+    if (loginBtn) loginBtn.classList.remove('active');
+    if (regForm) regForm.classList.remove('hidden');
+    if (loginForm) loginForm.classList.add('hidden');
+  }
+  setAuthAlert('');
+}
+
+function setAuthAlert(msg, type = 'error') {
+  const el = document.getElementById('authAlert');
+  if (!el) return;
+  if (!msg) {
+    el.className = 'auth-alert hidden';
+    el.innerText = '';
+  } else {
+    el.className = `auth-alert ${type}`;
+    el.innerText = msg;
+  }
+}
+
+function handleRegRoleChange(role) {
+  const storeGroup = document.getElementById('storeFieldsGroup');
+  const driverGroup = document.getElementById('driverFieldsGroup');
+  const nameLabel = document.getElementById('regNameLabel');
+
+  if (role === 'store') {
+    if (storeGroup) storeGroup.classList.remove('hidden');
+    if (driverGroup) driverGroup.classList.add('hidden');
+    if (nameLabel) nameLabel.innerText = 'اسم المتجر أو المطعم:';
+  } else if (role === 'driver') {
+    if (storeGroup) storeGroup.classList.add('hidden');
+    if (driverGroup) driverGroup.classList.remove('hidden');
+    if (nameLabel) nameLabel.innerText = 'اسم السائق الكامل:';
+  } else {
+    if (storeGroup) storeGroup.classList.add('hidden');
+    if (driverGroup) driverGroup.classList.add('hidden');
+    if (nameLabel) nameLabel.innerText = 'الاسم الكامل:';
+  }
+}
+
+async function handleLoginSubmit(e) {
+  e.preventDefault();
+  const phone = document.getElementById('loginPhone').value.trim();
+  const password = document.getElementById('loginPassword').value.trim();
+  const submitBtn = document.getElementById('loginSubmitBtn');
+
+  if (!phone || !password) {
+    setAuthAlert('يرجى إدخال رقم الهاتف وكلمة المرور');
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.innerText = 'جاري التحقق... ⏳';
+  setAuthAlert('');
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, password })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      setAuthAlert(data.error || 'فشل تسجيل الدخول. تأكد من صحة البيانات.');
+      submitBtn.disabled = false;
+      submitBtn.innerText = 'دخول إلى حسابي ➔';
+      return;
+    }
+
+    localStorage.setItem('sg_auth_user', JSON.stringify(data.user));
+    if (data.tokens && data.tokens.accessToken) {
+      localStorage.setItem('sg_auth_token', data.tokens.accessToken);
+    }
+
+    setAuthAlert('تم تسجيل الدخول بنجاح! مرحباً بك 🎉', 'success');
+    setTimeout(() => {
+      const modal = document.getElementById('authModal');
+      if (modal) modal.classList.add('hidden');
+      applyUserSession(data.user);
+      submitBtn.disabled = false;
+      submitBtn.innerText = 'دخول إلى حسابي ➔';
+    }, 800);
+  } catch (err) {
+    setAuthAlert('تعذر الاتصال بالخادم. يرجى التأكد من تشغيل السيرفر أو الاتصال بالإنترنت.');
+    submitBtn.disabled = false;
+    submitBtn.innerText = 'دخول إلى حسابي ➔';
+  }
+}
+
+async function handleRegisterSubmit(e) {
+  e.preventDefault();
+  const role = document.getElementById('regRoleSelect').value;
+  const name = document.getElementById('regName').value.trim();
+  const phone = document.getElementById('regPhone').value.trim();
+  const password = document.getElementById('regPassword').value.trim();
+  const address = document.getElementById('regNeighborhood').value;
+  const submitBtn = document.getElementById('regSubmitBtn');
+
+  if (!name || !phone || !password) {
+    setAuthAlert('يرجى تعبئة كافة الحقول المطلوبة');
+    return;
+  }
+
+  let endpoint = '/api/auth/register/customer';
+  let payload = { full_name: name, phone, password, address };
+
+  if (role === 'store') {
+    endpoint = '/api/auth/register/store';
+    const category = document.getElementById('regStoreCategory').value;
+    payload = { store_name: name, full_name: name, phone, password, address, category };
+  } else if (role === 'driver') {
+    endpoint = '/api/auth/register/driver';
+    const vehicle_type = document.getElementById('regVehicle').value || 'دراجة SYM';
+    const license_plate = document.getElementById('regLicensePlate').value || '12345-126-10';
+    payload = { full_name: name, phone, password, vehicle_type, license_plate };
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.innerText = 'جاري إنشاء الحساب... ⏳';
+  setAuthAlert('');
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      setAuthAlert(data.error || 'حدث خطأ أثناء إنشاء الحساب.');
+      submitBtn.disabled = false;
+      submitBtn.innerText = 'إنشاء حساب وتأكيد ✅';
+      return;
+    }
+
+    if (role === 'customer' && data.tokens) {
+      localStorage.setItem('sg_auth_user', JSON.stringify(data.user));
+      localStorage.setItem('sg_auth_token', data.tokens.accessToken);
+      setAuthAlert('تم إنشاء حساب الزبون بنجاح! مرحباً بك 🎉', 'success');
+      setTimeout(() => {
+        const modal = document.getElementById('authModal');
+        if (modal) modal.classList.add('hidden');
+        applyUserSession(data.user);
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'إنشاء حساب وتأكيد ✅';
+      }, 900);
+    } else {
+      setAuthAlert(data.message || 'تم تسجيل الحساب بنجاح! حسابك قيد المراجعة والموافقة من الإدارة.', 'success');
+      setTimeout(() => {
+        switchAuthTab('login');
+        document.getElementById('loginPhone').value = phone;
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'إنشاء حساب وتأكيد ✅';
+      }, 1500);
+    }
+  } catch (err) {
+    setAuthAlert('تعذر الاتصال بالخادم.');
+    submitBtn.disabled = false;
+    submitBtn.innerText = 'إنشاء حساب وتأكيد ✅';
+  }
+}
+
+function logoutUser() {
+  localStorage.removeItem('sg_auth_user');
+  localStorage.removeItem('sg_auth_token');
+  sessionStorage.removeItem('sg_guest_browsing');
+  currentAuthUser = null;
+  updateAuthNav(null);
+  switchRole('customer');
+  const roleSelect = document.getElementById('roleSelect');
+  if (roleSelect) roleSelect.value = 'customer';
+  openAuthModal('login');
 }
