@@ -207,6 +207,15 @@
         <p>📍 مركز البلدية: <strong>36.1480° N, 3.6900° E</strong> (نصف القطر: 8 كم - بلدية سور الغزلان)</p>
       </div>
 
+      <!-- Pending Accounts Approval Section -->
+      <div class="section-title" style="display:flex; justify-content:space-between; align-items:center; margin-top:24px;">
+        <h3>🔔 طلبات الحسابات بانتظار تفعيل الإدارة</h3>
+        <button class="btn btn-sm btn-outline" onclick="loadPendingUsers()">تحديث الطلبات 🔄</button>
+      </div>
+      <div id="adminPendingUsersList" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
+        <!-- Populated dynamically -->
+      </div>
+
       <div class="section-title">
         <h3>سجل كافة العمليات المباشرة</h3>
       </div>

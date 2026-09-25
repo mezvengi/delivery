@@ -118,6 +118,18 @@ router.put('/users/:id/status', async (req, res) => {
       [targetStatus, userId]
     );
 
+    const updatedUser = updateRes.rows[0];
+
+    // Sync status to store / driver profiles
+    if (updatedUser.role === 'store') {
+      const isActive = targetStatus === 'active';
+      await pool.query('UPDATE stores SET is_active = $1 WHERE user_id = $2', [isActive, userId]);
+      await pool.query('UPDATE shops SET is_active = $1 WHERE user_id = $2', [isActive, userId]);
+    } else if (updatedUser.role === 'driver') {
+      const isAvail = targetStatus === 'active';
+      await pool.query('UPDATE drivers SET is_available = $1 WHERE user_id = $2', [isAvail, userId]);
+    }
+
     // If account was suspended, immediately revoke all active sessions/tokens
     if (targetStatus === 'suspended') {
       await revokeAllUserTokens(userId);
