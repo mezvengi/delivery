@@ -1,7 +1,7 @@
 {
-  "name": "توصيل سور الغزلان - Sour Delivery",
-  "short_name": "سور للتوصيل",
-  "description": "تطبيق التوصيل المحلي الأول لبلدية سور الغزلان، ولاية البويرة",
+  "name": "SGdelivery - توصيل سور الغزلان",
+  "short_name": "SGdelivery",
+  "description": "تطبيق التوصيل المحلي الأول لبلدية سور الغزلان (SGdelivery)، ولاية البويرة",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0F172A",

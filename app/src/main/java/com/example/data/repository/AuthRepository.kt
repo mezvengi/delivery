@@ -14,7 +14,7 @@ import org.json.JSONObject
 import java.util.UUID
 
 class AuthRepository(context: Context) {
-    private val prefs = context.getSharedPreferences("sori_secure_auth_prefs", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences("sgdelivery_secure_auth_prefs", Context.MODE_PRIVATE)
 
     private val _currentUser = MutableStateFlow<UserAccount?>(null)
     val currentUser: StateFlow<UserAccount?> = _currentUser.asStateFlow()

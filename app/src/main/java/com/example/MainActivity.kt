@@ -101,7 +101,7 @@ class MainActivity : ComponentActivity() {
             val isDarkTheme = themeManager.isDarkThemeActive()
 
             MyApplicationTheme(darkTheme = isDarkTheme) {
-                SoriDeliveryApp(
+                SGdeliveryApp(
                     repository = repository,
                     authRepository = authRepository,
                     themeManager = themeManager
@@ -112,7 +112,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun SoriDeliveryApp(
+fun SGdeliveryApp(
     repository: DeliveryRepository,
     authRepository: AuthRepository,
     themeManager: ThemeManager

@@ -14,7 +14,7 @@ enum class AppThemeMode(val titleArabic: String) {
 }
 
 class ThemeManager(context: Context) {
-    private val prefs = context.getSharedPreferences("sori_theme_preferences", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences("sgdelivery_theme_preferences", Context.MODE_PRIVATE)
     private val _themeMode = MutableStateFlow(loadSavedTheme())
     val themeMode: StateFlow<AppThemeMode> = _themeMode.asStateFlow()
 
