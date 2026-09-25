@@ -5,12 +5,19 @@ import com.example.data.config.ApiConstants
 import com.example.data.models.AccountStatus
 import com.example.data.models.RoleType
 import com.example.data.models.UserAccount
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.io.OutputStreamWriter
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.UUID
 
 class AuthRepository(context: Context) {
@@ -26,10 +33,44 @@ class AuthRepository(context: Context) {
         loadCurrentSession()
     }
 
+    private suspend fun makePostRequest(endpoint: String, jsonBody: JSONObject): Pair<Int, JSONObject?> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("${ApiConstants.BASE_URL}$endpoint")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            conn.setRequestProperty("Accept", "application/json")
+            conn.connectTimeout = 7000
+            conn.readTimeout = 7000
+            conn.doOutput = true
+
+            val os = conn.outputStream
+            val writer = OutputStreamWriter(os, "UTF-8")
+            writer.write(jsonBody.toString())
+            writer.flush()
+            writer.close()
+
+            val statusCode = conn.responseCode
+            val stream = if (statusCode in 200..299) conn.inputStream else conn.errorStream
+            if (stream == null) {
+                conn.disconnect()
+                return@withContext Pair(statusCode, null)
+            }
+            val reader = BufferedReader(InputStreamReader(stream, "UTF-8"))
+            val response = reader.readText()
+            reader.close()
+            conn.disconnect()
+
+            val json = if (response.isNotEmpty()) JSONObject(response) else null
+            Pair(statusCode, json)
+        } catch (e: Exception) {
+            Pair(-1, null)
+        }
+    }
+
     private fun loadUsers() {
         val jsonString = prefs.getString("registered_users_list", null)
         if (jsonString.isNullOrEmpty()) {
-            // Seed verified default demo users
             val defaultUsers = listOf(
                 UserAccount(
                     id = "cust-01",
@@ -95,7 +136,7 @@ class AuthRepository(context: Context) {
                     )
                 }
             } catch (e: Exception) {
-                // In case of parsing issue fallback gracefully
+                // Fallback gracefully
             }
         }
     }
@@ -134,17 +175,71 @@ class AuthRepository(context: Context) {
     }
 
     suspend fun login(phone: String, pass: String): Result<UserAccount> {
-        delay(600) // Simulated network latency to ${ApiConstants.BASE_URL}
         val cleanPhone = normalizePhone(phone)
 
-        val user = usersList.find { normalizePhone(it.phone) == cleanPhone }
-        return if (user != null) {
-            _currentUser.value = user
-            prefs.edit().putString("current_session_user_id", user.id).apply()
-            prefs.edit().putString("secure_access_token", user.token).apply()
-            Result.success(user)
+        // 1. Try Live Backend API
+        val requestBody = JSONObject().apply {
+            put("phone", cleanPhone)
+            put("password", pass)
+        }
+        val (code, json) = makePostRequest("/auth/login", requestBody)
+
+        if (code == 200 && json != null) {
+            val userObj = json.optJSONObject("user")
+            val tokensObj = json.optJSONObject("tokens")
+            val accessToken = tokensObj?.optString("accessToken") ?: ""
+            val refreshToken = tokensObj?.optString("refreshToken") ?: ""
+
+            val roleStr = (userObj?.optString("role") ?: "customer").lowercase()
+            val statusStr = (userObj?.optString("status") ?: "active").lowercase()
+
+            val role = when (roleStr) {
+                "driver" -> RoleType.DRIVER
+                "store", "shop" -> RoleType.STORE
+                else -> RoleType.CUSTOMER
+            }
+
+            val status = when (statusStr) {
+                "pending" -> AccountStatus.PENDING_APPROVAL
+                "suspended" -> AccountStatus.REJECTED
+                else -> AccountStatus.APPROVED
+            }
+
+            val userAccount = UserAccount(
+                id = userObj?.optString("id") ?: UUID.randomUUID().toString(),
+                name = userObj?.optString("full_name") ?: "مستخدم SGdelivery",
+                phone = cleanPhone,
+                role = role,
+                status = status,
+                token = accessToken
+            )
+
+            _currentUser.value = userAccount
+            prefs.edit().putString("current_session_user_id", userAccount.id).apply()
+            prefs.edit().putString("secure_access_token", accessToken).apply()
+            prefs.edit().putString("secure_refresh_token", refreshToken).apply()
+
+            // Update local cache
+            usersList.removeAll { it.id == userAccount.id || normalizePhone(it.phone) == cleanPhone }
+            usersList.add(userAccount)
+            saveUsers()
+
+            return Result.success(userAccount)
+        } else if (code in 400..499 && json != null) {
+            val errMsg = json.optString("error", "بيانات الدخول غير صحيحة")
+            return Result.failure(Exception(errMsg))
+        }
+
+        // 2. Fallback to Local Offline Data if server is unreachable
+        delay(300)
+        val localUser = usersList.find { normalizePhone(it.phone) == cleanPhone }
+        return if (localUser != null) {
+            _currentUser.value = localUser
+            prefs.edit().putString("current_session_user_id", localUser.id).apply()
+            prefs.edit().putString("secure_access_token", localUser.token).apply()
+            Result.success(localUser)
         } else {
-            Result.failure(Exception("رقم الهاتف أو كلمة السر غير صحيحة، يرجى التأكد وإعادة المحاولة"))
+            Result.failure(Exception("تعذر الاتصال بالخادم، ورقم الهاتف غير موجود محلياً"))
         }
     }
 
@@ -155,28 +250,61 @@ class AuthRepository(context: Context) {
         address: String,
         neighborhood: String
     ): Result<UserAccount> {
-        delay(700)
         val cleanPhone = normalizePhone(phone)
-        if (usersList.any { normalizePhone(it.phone) == cleanPhone }) {
-            return Result.failure(Exception("رقم الهاتف مسجل مسبقاً، يرجى تسجيل الدخول أو استخدام رقم آخر"))
+
+        // 1. Try Live Backend API
+        val reqBody = JSONObject().apply {
+            put("phone", cleanPhone)
+            put("password", pass)
+            put("full_name", name.trim())
+            put("address", address.trim())
+        }
+        val (code, json) = makePostRequest("/auth/register/customer", reqBody)
+
+        if (code in 200..201 && json != null) {
+            val userObj = json.optJSONObject("user")
+            val tokensObj = json.optJSONObject("tokens")
+            val token = tokensObj?.optString("accessToken") ?: "jwt_${UUID.randomUUID()}"
+            val refreshToken = tokensObj?.optString("refreshToken") ?: ""
+
+            val newUser = UserAccount(
+                id = userObj?.optString("id") ?: "cust-${UUID.randomUUID().toString().take(8)}",
+                name = name.trim(),
+                phone = cleanPhone,
+                role = RoleType.CUSTOMER,
+                status = AccountStatus.APPROVED,
+                token = token,
+                address = address.trim(),
+                neighborhood = neighborhood
+            )
+
+            usersList.add(newUser)
+            saveUsers()
+            _currentUser.value = newUser
+            prefs.edit().putString("current_session_user_id", newUser.id).apply()
+            prefs.edit().putString("secure_access_token", token).apply()
+            prefs.edit().putString("secure_refresh_token", refreshToken).apply()
+
+            return Result.success(newUser)
+        } else if (code in 400..499 && json != null) {
+            return Result.failure(Exception(json.optString("error", "فشل تسجيل الزبون")))
         }
 
+        // Fallback
         val newUser = UserAccount(
             id = "cust-${UUID.randomUUID().toString().take(8)}",
             name = name.trim(),
             phone = cleanPhone,
             role = RoleType.CUSTOMER,
-            status = AccountStatus.APPROVED, // Customers are auto-approved
+            status = AccountStatus.APPROVED,
             token = "jwt_${UUID.randomUUID()}",
             address = address.trim(),
             neighborhood = neighborhood
         )
-
         usersList.add(newUser)
         saveUsers()
         _currentUser.value = newUser
         prefs.edit().putString("current_session_user_id", newUser.id).apply()
-        prefs.edit().putString("secure_access_token", newUser.token).apply()
         return Result.success(newUser)
     }
 
@@ -188,29 +316,55 @@ class AuthRepository(context: Context) {
         plateNumber: String,
         idDocumentAttached: Boolean
     ): Result<UserAccount> {
-        delay(700)
         val cleanPhone = normalizePhone(phone)
-        if (usersList.any { normalizePhone(it.phone) == cleanPhone }) {
-            return Result.failure(Exception("رقم الهاتف مسجل مسبقاً في النظام"))
+
+        val reqBody = JSONObject().apply {
+            put("phone", cleanPhone)
+            put("password", pass)
+            put("full_name", name.trim())
+            put("vehicle_type", vehicleType)
+            put("license_plate", plateNumber.trim())
+        }
+        val (code, json) = makePostRequest("/auth/register/driver", reqBody)
+
+        if (code in 200..201 && json != null) {
+            val userObj = json.optJSONObject("user")
+            val newDriver = UserAccount(
+                id = userObj?.optString("id") ?: "driv-${UUID.randomUUID().toString().take(8)}",
+                name = name.trim(),
+                phone = cleanPhone,
+                role = RoleType.DRIVER,
+                status = AccountStatus.PENDING_APPROVAL,
+                token = "jwt_${UUID.randomUUID()}",
+                vehicleType = vehicleType,
+                plateNumber = plateNumber.trim(),
+                idDocumentAttached = idDocumentAttached
+            )
+            usersList.add(newDriver)
+            saveUsers()
+            _currentUser.value = newDriver
+            prefs.edit().putString("current_session_user_id", newDriver.id).apply()
+            return Result.success(newDriver)
+        } else if (code in 400..499 && json != null) {
+            return Result.failure(Exception(json.optString("error", "فشل تسجيل السائق")))
         }
 
+        // Fallback
         val newDriver = UserAccount(
             id = "driv-${UUID.randomUUID().toString().take(8)}",
             name = name.trim(),
             phone = cleanPhone,
             role = RoleType.DRIVER,
-            status = AccountStatus.PENDING_APPROVAL, // New driver requires admin approval
+            status = AccountStatus.PENDING_APPROVAL,
             token = "jwt_${UUID.randomUUID()}",
             vehicleType = vehicleType,
             plateNumber = plateNumber.trim(),
             idDocumentAttached = idDocumentAttached
         )
-
         usersList.add(newDriver)
         saveUsers()
         _currentUser.value = newDriver
         prefs.edit().putString("current_session_user_id", newDriver.id).apply()
-        prefs.edit().putString("secure_access_token", newDriver.token).apply()
         return Result.success(newDriver)
     }
 
@@ -224,18 +378,50 @@ class AuthRepository(context: Context) {
         lat: Double,
         lon: Double
     ): Result<UserAccount> {
-        delay(700)
         val cleanPhone = normalizePhone(phone)
-        if (usersList.any { normalizePhone(it.phone) == cleanPhone }) {
-            return Result.failure(Exception("رقم الهاتف مسجل مسبقاً في النظام"))
+
+        val reqBody = JSONObject().apply {
+            put("phone", cleanPhone)
+            put("password", pass)
+            put("full_name", ownerName.trim())
+            put("store_name", storeName.trim())
+            put("category", storeType)
+            put("address", address.trim())
+        }
+        val (code, json) = makePostRequest("/auth/register/store", reqBody)
+
+        if (code in 200..201 && json != null) {
+            val userObj = json.optJSONObject("user")
+            val newStore = UserAccount(
+                id = userObj?.optString("id") ?: "stor-${UUID.randomUUID().toString().take(8)}",
+                name = storeName.trim(),
+                phone = cleanPhone,
+                role = RoleType.STORE,
+                status = AccountStatus.PENDING_APPROVAL,
+                token = "jwt_${UUID.randomUUID()}",
+                address = address.trim(),
+                storeName = storeName.trim(),
+                storeOwner = ownerName.trim(),
+                storeType = storeType,
+                storeLat = lat,
+                storeLon = lon
+            )
+            usersList.add(newStore)
+            saveUsers()
+            _currentUser.value = newStore
+            prefs.edit().putString("current_session_user_id", newStore.id).apply()
+            return Result.success(newStore)
+        } else if (code in 400..499 && json != null) {
+            return Result.failure(Exception(json.optString("error", "فشل تسجيل المتجر")))
         }
 
+        // Fallback
         val newStore = UserAccount(
             id = "stor-${UUID.randomUUID().toString().take(8)}",
             name = storeName.trim(),
             phone = cleanPhone,
             role = RoleType.STORE,
-            status = AccountStatus.PENDING_APPROVAL, // New store requires admin approval
+            status = AccountStatus.PENDING_APPROVAL,
             token = "jwt_${UUID.randomUUID()}",
             address = address.trim(),
             storeName = storeName.trim(),
@@ -244,19 +430,19 @@ class AuthRepository(context: Context) {
             storeLat = lat,
             storeLon = lon
         )
-
         usersList.add(newStore)
         saveUsers()
         _currentUser.value = newStore
         prefs.edit().putString("current_session_user_id", newStore.id).apply()
-        prefs.edit().putString("secure_access_token", newStore.token).apply()
         return Result.success(newStore)
     }
 
     fun logout() {
+        val refreshToken = prefs.getString("secure_refresh_token", "")
         _currentUser.value = null
         prefs.edit().remove("current_session_user_id").apply()
         prefs.edit().remove("secure_access_token").apply()
+        prefs.edit().remove("secure_refresh_token").apply()
     }
 
     fun approveAccount(userId: String) {
