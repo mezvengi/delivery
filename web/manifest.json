@@ -1,0 +1,24 @@
+{
+  "name": "توصيل سور الغزلان - Sour Delivery",
+  "short_name": "سور للتوصيل",
+  "description": "تطبيق التوصيل المحلي الأول لبلدية سور الغزلان، ولاية البويرة",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#EA580C",
+  "orientation": "portrait-primary",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+services:
+  # Caddy Reverse Proxy with automated Let's Encrypt SSL
+  caddy:
+    image: caddy:2-alpine
+    container_name: sour_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./web:/var/www/html:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+    networks:
+      - sour_net
+
+  # Lightweight Node.js Backend (<100MB RAM)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sour_backend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgres://sour_user:sour_pass_2026@postgres:5432/sour_delivery
+      - JWT_SECRET=sour_el_ghozlane_super_secure_jwt_secret_2026
+      - GEOFENCE_LAT=36.1480
+      - GEOFENCE_LON=3.6900
+      - GEOFENCE_RADIUS_KM=8.0
+      - DEFAULT_DELIVERY_FEE=200
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_ADMIN_CHAT_ID=${TELEGRAM_ADMIN_CHAT_ID:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sour_net
+
+  # PostgreSQL 16 isolated in private internal network
+  postgres:
+    image: postgres:16-alpine
+    container_name: sour_postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=sour_user
+      - POSTGRES_PASSWORD=sour_pass_2026
+      - POSTGRES_DB=sour_delivery
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sour_user -d sour_delivery"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sour_net
+
+volumes:
+  pgdata:
+    driver: local
+  caddy_data:
+  caddy_config:
+
+networks:
+  sour_net:
+    driver: bridge

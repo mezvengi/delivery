@@ -1,0 +1,291 @@
+package com.example.data.repository
+
+import android.content.Context
+import com.example.data.config.ApiConstants
+import com.example.data.models.AccountStatus
+import com.example.data.models.RoleType
+import com.example.data.models.UserAccount
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import org.json.JSONArray
+import org.json.JSONObject
+import java.util.UUID
+
+class AuthRepository(context: Context) {
+    private val prefs = context.getSharedPreferences("sori_secure_auth_prefs", Context.MODE_PRIVATE)
+
+    private val _currentUser = MutableStateFlow<UserAccount?>(null)
+    val currentUser: StateFlow<UserAccount?> = _currentUser.asStateFlow()
+
+    private val usersList = mutableListOf<UserAccount>()
+
+    init {
+        loadUsers()
+        loadCurrentSession()
+    }
+
+    private fun loadUsers() {
+        val jsonString = prefs.getString("registered_users_list", null)
+        if (jsonString.isNullOrEmpty()) {
+            // Seed verified default demo users
+            val defaultUsers = listOf(
+                UserAccount(
+                    id = "cust-01",
+                    name = "أحمد بوزيد",
+                    phone = "0550123456",
+                    role = RoleType.CUSTOMER,
+                    status = AccountStatus.APPROVED,
+                    token = "token_cust_12345",
+                    address = "حي الوئام، عمارة 4",
+                    neighborhood = "حي الوئام"
+                ),
+                UserAccount(
+                    id = "driv-01",
+                    name = "أمين منصوري",
+                    phone = "0660123456",
+                    role = RoleType.DRIVER,
+                    status = AccountStatus.APPROVED,
+                    token = "token_driv_12345",
+                    vehicleType = "دراجة نارية",
+                    plateNumber = "12345-126-10",
+                    idDocumentAttached = true
+                ),
+                UserAccount(
+                    id = "stor-01",
+                    name = "مطعم الأوراس",
+                    phone = "0770123456",
+                    role = RoleType.STORE,
+                    status = AccountStatus.APPROVED,
+                    token = "token_stor_12345",
+                    storeName = "مطعم الأوراس للشواء والوجبات",
+                    storeOwner = "كمال أوراسي",
+                    storeType = "مطعم وشواء",
+                    address = "شارع الاستقلال، وسط المدينة"
+                )
+            )
+            usersList.addAll(defaultUsers)
+            saveUsers()
+        } else {
+            try {
+                val array = JSONArray(jsonString)
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    usersList.add(
+                        UserAccount(
+                            id = obj.getString("id"),
+                            name = obj.getString("name"),
+                            phone = obj.getString("phone"),
+                            role = RoleType.valueOf(obj.getString("role")),
+                            status = AccountStatus.valueOf(obj.getString("status")),
+                            token = obj.getString("token"),
+                            address = obj.optString("address", ""),
+                            neighborhood = obj.optString("neighborhood", "وسط المدينة"),
+                            vehicleType = obj.optString("vehicleType", ""),
+                            plateNumber = obj.optString("plateNumber", ""),
+                            idDocumentAttached = obj.optBoolean("idDocumentAttached", false),
+                            storeName = obj.optString("storeName", ""),
+                            storeOwner = obj.optString("storeOwner", ""),
+                            storeType = obj.optString("storeType", ""),
+                            storeLat = obj.optDouble("storeLat", 36.1480),
+                            storeLon = obj.optDouble("storeLon", 3.6900),
+                            createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                // In case of parsing issue fallback gracefully
+            }
+        }
+    }
+
+    private fun saveUsers() {
+        val array = JSONArray()
+        for (user in usersList) {
+            val obj = JSONObject()
+            obj.put("id", user.id)
+            obj.put("name", user.name)
+            obj.put("phone", user.phone)
+            obj.put("role", user.role.name)
+            obj.put("status", user.status.name)
+            obj.put("token", user.token)
+            obj.put("address", user.address)
+            obj.put("neighborhood", user.neighborhood)
+            obj.put("vehicleType", user.vehicleType)
+            obj.put("plateNumber", user.plateNumber)
+            obj.put("idDocumentAttached", user.idDocumentAttached)
+            obj.put("storeName", user.storeName)
+            obj.put("storeOwner", user.storeOwner)
+            obj.put("storeType", user.storeType)
+            obj.put("storeLat", user.storeLat)
+            obj.put("storeLon", user.storeLon)
+            obj.put("createdAt", user.createdAt)
+            array.put(obj)
+        }
+        prefs.edit().putString("registered_users_list", array.toString()).apply()
+    }
+
+    private fun loadCurrentSession() {
+        val currentUserId = prefs.getString("current_session_user_id", null)
+        if (!currentUserId.isNullOrEmpty()) {
+            _currentUser.value = usersList.find { it.id == currentUserId }
+        }
+    }
+
+    suspend fun login(phone: String, pass: String): Result<UserAccount> {
+        delay(600) // Simulated network latency to ${ApiConstants.BASE_URL}
+        val cleanPhone = normalizePhone(phone)
+
+        val user = usersList.find { normalizePhone(it.phone) == cleanPhone }
+        return if (user != null) {
+            _currentUser.value = user
+            prefs.edit().putString("current_session_user_id", user.id).apply()
+            prefs.edit().putString("secure_access_token", user.token).apply()
+            Result.success(user)
+        } else {
+            Result.failure(Exception("رقم الهاتف أو كلمة السر غير صحيحة، يرجى التأكد وإعادة المحاولة"))
+        }
+    }
+
+    suspend fun registerCustomer(
+        name: String,
+        phone: String,
+        pass: String,
+        address: String,
+        neighborhood: String
+    ): Result<UserAccount> {
+        delay(700)
+        val cleanPhone = normalizePhone(phone)
+        if (usersList.any { normalizePhone(it.phone) == cleanPhone }) {
+            return Result.failure(Exception("رقم الهاتف مسجل مسبقاً، يرجى تسجيل الدخول أو استخدام رقم آخر"))
+        }
+
+        val newUser = UserAccount(
+            id = "cust-${UUID.randomUUID().toString().take(8)}",
+            name = name.trim(),
+            phone = cleanPhone,
+            role = RoleType.CUSTOMER,
+            status = AccountStatus.APPROVED, // Customers are auto-approved
+            token = "jwt_${UUID.randomUUID()}",
+            address = address.trim(),
+            neighborhood = neighborhood
+        )
+
+        usersList.add(newUser)
+        saveUsers()
+        _currentUser.value = newUser
+        prefs.edit().putString("current_session_user_id", newUser.id).apply()
+        prefs.edit().putString("secure_access_token", newUser.token).apply()
+        return Result.success(newUser)
+    }
+
+    suspend fun registerDriver(
+        name: String,
+        phone: String,
+        pass: String,
+        vehicleType: String,
+        plateNumber: String,
+        idDocumentAttached: Boolean
+    ): Result<UserAccount> {
+        delay(700)
+        val cleanPhone = normalizePhone(phone)
+        if (usersList.any { normalizePhone(it.phone) == cleanPhone }) {
+            return Result.failure(Exception("رقم الهاتف مسجل مسبقاً في النظام"))
+        }
+
+        val newDriver = UserAccount(
+            id = "driv-${UUID.randomUUID().toString().take(8)}",
+            name = name.trim(),
+            phone = cleanPhone,
+            role = RoleType.DRIVER,
+            status = AccountStatus.PENDING_APPROVAL, // New driver requires admin approval
+            token = "jwt_${UUID.randomUUID()}",
+            vehicleType = vehicleType,
+            plateNumber = plateNumber.trim(),
+            idDocumentAttached = idDocumentAttached
+        )
+
+        usersList.add(newDriver)
+        saveUsers()
+        _currentUser.value = newDriver
+        prefs.edit().putString("current_session_user_id", newDriver.id).apply()
+        prefs.edit().putString("secure_access_token", newDriver.token).apply()
+        return Result.success(newDriver)
+    }
+
+    suspend fun registerStore(
+        storeName: String,
+        ownerName: String,
+        phone: String,
+        pass: String,
+        address: String,
+        storeType: String,
+        lat: Double,
+        lon: Double
+    ): Result<UserAccount> {
+        delay(700)
+        val cleanPhone = normalizePhone(phone)
+        if (usersList.any { normalizePhone(it.phone) == cleanPhone }) {
+            return Result.failure(Exception("رقم الهاتف مسجل مسبقاً في النظام"))
+        }
+
+        val newStore = UserAccount(
+            id = "stor-${UUID.randomUUID().toString().take(8)}",
+            name = storeName.trim(),
+            phone = cleanPhone,
+            role = RoleType.STORE,
+            status = AccountStatus.PENDING_APPROVAL, // New store requires admin approval
+            token = "jwt_${UUID.randomUUID()}",
+            address = address.trim(),
+            storeName = storeName.trim(),
+            storeOwner = ownerName.trim(),
+            storeType = storeType,
+            storeLat = lat,
+            storeLon = lon
+        )
+
+        usersList.add(newStore)
+        saveUsers()
+        _currentUser.value = newStore
+        prefs.edit().putString("current_session_user_id", newStore.id).apply()
+        prefs.edit().putString("secure_access_token", newStore.token).apply()
+        return Result.success(newStore)
+    }
+
+    fun logout() {
+        _currentUser.value = null
+        prefs.edit().remove("current_session_user_id").apply()
+        prefs.edit().remove("secure_access_token").apply()
+    }
+
+    fun approveAccount(userId: String) {
+        val index = usersList.indexOfFirst { it.id == userId }
+        if (index != -1) {
+            val updated = usersList[index].copy(status = AccountStatus.APPROVED)
+            usersList[index] = updated
+            saveUsers()
+            if (_currentUser.value?.id == userId) {
+                _currentUser.value = updated
+            }
+        }
+    }
+
+    private fun normalizePhone(raw: String): String {
+        return raw.replace(" ", "")
+            .replace("-", "")
+            .replace("+213", "0")
+            .trim()
+    }
+
+    companion object {
+        fun isValidAlgerianPhone(phone: String): Boolean {
+            val clean = phone.replace(" ", "").replace("-", "").replace("+213", "0").trim()
+            return clean.matches(Regex("^(05|06|07)[0-9]{8}$"))
+        }
+
+        fun isValidPassword(password: String): Boolean {
+            return password.length >= 6
+        }
+    }
+}

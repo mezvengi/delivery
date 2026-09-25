@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Sori | تطبيق سوري لتوصيل الطلبات - سور الغزلان</title>
+  <meta name="theme-color" content="#EA580C">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Header / Navigation Bar -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="brand">
+        <div class="brand-text">
+          <h1>تطبيق سوري (Sori)</h1>
+          <span class="badge">بلدية سور الغزلان • توصيل ثابت 200 دج</span>
+        </div>
+      </div>
+      
+      <!-- Role Switcher -->
+      <div class="role-selector">
+        <label for="roleSelect">الدور الحالي:</label>
+        <select id="roleSelect" onchange="switchRole(this.value)">
+          <option value="customer">الزبون (تصفح وطلب)</option>
+          <option value="shop">المتجر (استقبال وتحضير)</option>
+          <option value="driver">السائق (توصيل وبث GPS)</option>
+          <option value="admin">الإدارة (مراقبة وتوزيع)</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main App Container -->
+  <main class="app-body">
+    <!-- VIEW 1: CUSTOMER VIEW -->
+    <section id="customerView" class="view-section active">
+      <!-- Store List Subview -->
+      <div id="storeListView">
+        <div class="hero-banner">
+          <h2>أشهى المأكولات والمطاعم إلى باب بيتك</h2>
+          <p>اختر مطعمك المفضل في سور الغزلان وسائق التوصيل الأقرب إليك بالدفع عند الاستلام</p>
+        </div>
+
+        <!-- Order History Quick Link -->
+        <div class="order-history-link-card" onclick="showOrderHistoryView()" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 20px;">📋</span>
+            <div>
+              <strong style="font-size: 13px; color: var(--text-main); display: block;">سجل الطلبات السابقة ومواعيد التوصيل</strong>
+              <span style="font-size: 11px; color: var(--text-muted);">عرض المبالغ والوجبات المخزنة محلياً</span>
+            </div>
+          </div>
+          <span id="orderHistoryBadge" style="background: var(--primary); color: white; padding: 4px 10px; border-radius: 10px; font-size: 12px; font-weight: bold;">3 طلبات ➔</span>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-bar-container" style="margin-bottom: 14px;">
+          <input type="text" id="shopSearchInput" class="form-control" placeholder="🔍 ابحث عن مطعم أو وجبة (شواء، بيتزا، كبدة، برغر...)" oninput="handleSearchInput(this.value)">
+        </div>
+
+        <!-- Category Filter Bar (شريط التصنيفات) -->
+        <div class="category-filter-section" style="margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-weight: 700; font-size: 13px; color: var(--text-main);">التصنيفات والأنواع:</span>
+            <span id="resetCategoryBtn" style="font-size: 12px; color: var(--primary); font-weight: 700; cursor: pointer; display: none;" onclick="selectCategory('all')">إلغاء التصفية ✕</span>
+          </div>
+          <div class="categories-scroll-row" id="categoriesScrollRow" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;">
+            <button class="cat-pill active" onclick="selectCategory('all')">🍽️ الكل</button>
+            <button class="cat-pill" onclick="selectCategory('pizza')">🍕 بيتزا</button>
+            <button class="cat-pill" onclick="selectCategory('bbq')">🥩 شواء ومشويات</button>
+            <button class="cat-pill" onclick="selectCategory('fast_food')">🍔 وجبات سريعة</button>
+            <button class="cat-pill" onclick="selectCategory('sandwiches')">🥪 سندويشات</button>
+            <button class="cat-pill" onclick="selectCategory('sweets')">🥐 حلويات ومخبوزات</button>
+          </div>
+        </div>
+
+        <div class="section-title">
+          <h3 id="shopsSectionTitle">المتاجر والمطاعم المتاحة الآن في سور الغزلان</h3>
+        </div>
+
+        <div id="mealsSearchResults" class="products-grid hidden" style="margin-bottom: 20px;"></div>
+
+        <div id="shopsGrid" class="shops-grid">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- Single Store Detail Subview -->
+      <div id="storeDetailView" class="hidden">
+        <button class="btn btn-secondary back-btn" onclick="showStoreList()">
+          ➔ العودة إلى قائمة المتاجر
+        </button>
+
+        <div id="storeHeaderCard" class="store-header-card">
+          <!-- Populated dynamically -->
+        </div>
+
+        <h3 class="menu-heading">قائمة الوجبات والأسعار (بالدينار الجزائري)</h3>
+        <div id="productsGrid" class="products-grid">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Order History Subview -->
+      <div id="orderHistoryView" class="hidden">
+        <button class="btn btn-secondary back-btn" onclick="showStoreList()">
+          ➔ العودة إلى قائمة المتاجر
+        </button>
+
+        <div class="section-title">
+          <h3>📋 سجل طلباتك السابقة (تخزين محلي)</h3>
+          <p style="font-size: 12px; color: var(--text-muted);">جميع تفاصيل الطلبات، الأسعار الإجمالية بالدينار الجزائري، ومواعيد التوصيل</p>
+        </div>
+
+        <div id="orderHistoryList" style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: SHOP VIEW -->
+    <section id="shopView" class="view-section hidden">
+      <div class="dashboard-header">
+        <h2>لوحة تحكم المتجر (مطعم الأوراس)</h2>
+        <span class="status-pill status-open">المتجر مفتوح لاستقبال الطلبات ✅</span>
+      </div>
+      <div id="shopOrdersList" class="orders-list">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
+
+    <!-- VIEW 3: DRIVER VIEW -->
+    <section id="driverView" class="view-section hidden">
+      <div class="driver-card">
+        <div class="driver-status-toggle">
+          <div>
+            <h3>حالة السائق (أمين - SYM 125)</h3>
+            <p>عند التفعيل سيظهر موقعك المباشر للزبائن في خريطة سور الغزلان</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="driverOnlineToggle" checked onchange="toggleDriverOnline(this.checked)">
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <div class="driver-gps-bar">
+          <span>📡 بث الإحداثيات: <strong id="driverCoordsLabel">36.1482° N, 3.6912° E</strong></span>
+          <button class="btn btn-sm btn-outline" onclick="simulateDriverMovement()">محاكاة حركة الدراجة 🛵</button>
+        </div>
+      </div>
+
+      <div class="section-title">
+        <h3>الطلبات الجاهزة للتوصيل في سور الغزلان</h3>
+      </div>
+      <div id="driverOrdersList" class="orders-list">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
+
+    <!-- VIEW 4: ADMIN VIEW -->
+    <section id="adminView" class="view-section hidden">
+      <div class="stats-row">
+        <div class="stat-card">
+          <span class="stat-val" id="adminTotalOrders">12</span>
+          <span class="stat-lbl">طلبات اليوم</span>
+        </div>
+        <div class="stat-card highlight">
+          <span class="stat-val" id="adminRevenue">14,200 دج</span>
+          <span class="stat-lbl">مجموع المبيعات</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-val" id="adminActiveDrivers">2</span>
+          <span class="stat-lbl">سائقين متصلين 🛵</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-val" id="adminActiveShops">4</span>
+          <span class="stat-lbl">متاجر مفتوحة</span>
+        </div>
+      </div>
+
+      <div class="geofence-card">
+        <h4>النطاق الجغرافي المعتمد (Geofence):</h4>
+        <p>📍 مركز البلدية: <strong>36.1480° N, 3.6900° E</strong> (نصف القطر: 8 كم - بلدية سور الغزلان)</p>
+      </div>
+
+      <div class="section-title">
+        <h3>سجل كافة العمليات المباشرة</h3>
+      </div>
+      <div id="adminOrdersList" class="orders-list"></div>
+    </section>
+  </main>
+
+  <!-- FLOATING CART BAR -->
+  <div id="floatingCart" class="floating-cart hidden">
+    <div class="cart-info">
+      <span class="cart-count" id="cartCountBadge">0</span>
+      <div>
+        <div class="cart-total-text">المجموع: <strong id="cartTotalSum">0</strong> دج</div>
+        <div class="cart-delivery-note">+ 200 دج توصيل ثابت (دفع عند الاستلام)</div>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="openDriverSelectionModal()">
+      إتمام الطلب واختيار السائق 🛵
+    </button>
+  </div>
+
+  <!-- MODAL: DRIVER SELECTION & CHECKOUT -->
+  <div id="driverModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🛵 إتمام الطلب واختيار سائق التوصيل</h3>
+        <button class="close-btn" onclick="closeDriverSelectionModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Delivery Address Details -->
+        <div class="form-group">
+          <label>اسم الزبون الكريم:</label>
+          <input type="text" id="custNameInput" class="form-control" value="محمد - زبون سور الغزلان" placeholder="الاسم الكامل">
+        </div>
+
+        <div class="form-group">
+          <label>رقم الهاتف الجزائري (05 / 06 / 07):</label>
+          <input type="tel" id="custPhoneInput" class="form-control" value="0550123456" placeholder="05XXXXXXXX">
+        </div>
+
+        <div class="form-group">
+          <label>الحي في سور الغزلان:</label>
+          <select id="custNeighborhoodSelect" class="form-control">
+            <option value="وسط المدينة">وسط المدينة (Centre Ville)</option>
+            <option value="حي الوئام">حي الوئام (Hai El Wiame)</option>
+            <option value="حي 114 مسكن">حي 114 مسكن (114 Logements)</option>
+            <option value="حي ذراع البرج">حي ذراع البرج (Draa El Bordj)</option>
+            <option value="حي عين مريم">حي عين مريم (Ain Meriem)</option>
+            <option value="حي باب الجزائر">حي باب الجزائر (Bab El Djazair)</option>
+            <option value="حي باب البوسعادة">حي باب البوسعادة (Bab Boussaada)</option>
+            <option value="المنطقة الصناعية">المنطقة الصناعية (Zone Industrielle)</option>
+            <option value="حي النصر">حي النصر (Hai En-Nasr)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>وصف دقيق للعنوان (معلم قريب أو رقم العمارة):</label>
+          <input type="text" id="custAddressInput" class="form-control" value="مقابل صيدلية الأمل، العمارة ب، الطابق 2" placeholder="وصف العنوان">
+        </div>
+
+        <!-- OpenStreetMap Drivers Map -->
+        <label class="map-label">📍 خريطة دراجات السائقين المتصلين في سور الغزلان:</label>
+        <div id="driversMap" class="drivers-map-container"></div>
+
+        <!-- Driver List Selector -->
+        <label class="drivers-list-label">اختر سائقك المفضل:</label>
+        <div id="driversListContainer" class="drivers-radio-group">
+          <!-- Populated dynamically -->
+        </div>
+
+        <div class="order-summary-box">
+          <div class="summary-line"><span>ثمن الوجبات:</span><span id="summarySubtotal">0 دج</span></div>
+          <div class="summary-line"><span>سعر التوصيل (ثابت):</span><span>200 دج</span></div>
+          <div class="summary-line total"><span>المجموع الإجمالي (عند الاستلام):</span><span id="summaryTotal">200 دج</span></div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-primary btn-block" onclick="confirmOrder()">
+          تأكيد الطلب الآن (الدفع عند الاستلام COD) ✅
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: LIVE REAL-TIME TRACKING SCREEN -->
+  <div id="trackingModal" class="modal-backdrop hidden">
+    <div class="modal-content tracking-modal-content">
+      <div class="modal-header tracking-header">
+        <div>
+          <h3>تتبع الطلب المباشر 🛵</h3>
+          <span class="order-id-label" id="trackOrderNum">SOUR-8921</span>
+        </div>
+        <button class="close-btn" onclick="closeTrackingModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Stepper Progress Bar -->
+        <div class="stepper-container">
+          <div class="step-item" id="step1">
+            <div class="step-circle">1</div>
+            <span>تم الطلب</span>
+          </div>
+          <div class="step-line" id="line1"></div>
+          <div class="step-item" id="step2">
+            <div class="step-circle">2</div>
+            <span>تحضير الوجبة</span>
+          </div>
+          <div class="step-line" id="line2"></div>
+          <div class="step-item" id="step3">
+            <div class="step-circle">3</div>
+            <span>قيد التوصيل 🛵</span>
+          </div>
+          <div class="step-line" id="line3"></div>
+          <div class="step-item" id="step4">
+            <div class="step-circle">4</div>
+            <span>تم التسليم ✅</span>
+          </div>
+        </div>
+
+        <!-- Live Real-Time OpenStreetMap Tracking Canvas -->
+        <div class="map-tracking-wrapper">
+          <div id="liveTrackingMap" class="live-map"></div>
+          <div class="live-badge-overlay">
+            <span class="pulse-dot"></span> بث موقع الدراجة المباشر (WebSocket Live)
+          </div>
+        </div>
+
+        <!-- Driver & Order Info Card -->
+        <div class="tracking-info-card">
+          <div class="driver-profile-row">
+            <div class="driver-avatar">🛵</div>
+            <div class="driver-details">
+              <h4 id="trackDriverName">أمين التوصيل (دراجة SYM)</h4>
+              <p id="trackDriverPhone">هاتف: +213553333333</p>
+              <div class="eta-tag">الوقت المقدر للوصول: <strong id="trackEta">8 دقائق</strong></div>
+            </div>
+            <a id="trackCallBtn" href="tel:+213553333333" class="call-btn">📞 اتصال</a>
+          </div>
+
+          <div class="payment-cod-notice">
+            <span>المبلغ المطلوب تسليمه للسائق نقداً:</span>
+            <strong id="trackTotalCod">1,150 دج</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
