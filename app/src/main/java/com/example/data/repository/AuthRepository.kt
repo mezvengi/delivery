@@ -70,45 +70,7 @@ class AuthRepository(context: Context) {
 
     private fun loadUsers() {
         val jsonString = prefs.getString("registered_users_list", null)
-        if (jsonString.isNullOrEmpty()) {
-            val defaultUsers = listOf(
-                UserAccount(
-                    id = "cust-01",
-                    name = "أحمد بوزيد",
-                    phone = "0550123456",
-                    role = RoleType.CUSTOMER,
-                    status = AccountStatus.APPROVED,
-                    token = "token_cust_12345",
-                    address = "حي الوئام، عمارة 4",
-                    neighborhood = "حي الوئام"
-                ),
-                UserAccount(
-                    id = "driv-01",
-                    name = "أمين منصوري",
-                    phone = "0660123456",
-                    role = RoleType.DRIVER,
-                    status = AccountStatus.APPROVED,
-                    token = "token_driv_12345",
-                    vehicleType = "دراجة نارية",
-                    plateNumber = "12345-126-10",
-                    idDocumentAttached = true
-                ),
-                UserAccount(
-                    id = "stor-01",
-                    name = "مطعم الأوراس",
-                    phone = "0770123456",
-                    role = RoleType.STORE,
-                    status = AccountStatus.APPROVED,
-                    token = "token_stor_12345",
-                    storeName = "مطعم الأوراس للشواء والوجبات",
-                    storeOwner = "كمال أوراسي",
-                    storeType = "مطعم وشواء",
-                    address = "شارع الاستقلال، وسط المدينة"
-                )
-            )
-            usersList.addAll(defaultUsers)
-            saveUsers()
-        } else {
+        if (!jsonString.isNullOrEmpty()) {
             try {
                 val array = JSONArray(jsonString)
                 for (i in 0 until array.length()) {

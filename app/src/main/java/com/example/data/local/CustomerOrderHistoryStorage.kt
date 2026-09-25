@@ -42,46 +42,7 @@ class CustomerOrderHistoryStorage(context: Context) {
     private fun loadHistory() {
         val jsonString = prefs.getString("past_orders_array", null)
         if (jsonString.isNullOrEmpty()) {
-            // Seed initial realistic past orders in Sour El Ghozlane local array
-            val initialArray = listOf(
-                CustomerPastOrder(
-                    id = 1092,
-                    orderNumber = "#SG-1092",
-                    shopName = "مطعم الأوراس للشواء والوجبات",
-                    itemsSummary = "1x شواء نصف دجاجة على الفحم، 1x شربة فريك باللحم",
-                    totalPrice = 1200,
-                    deliveryFee = 200,
-                    deliveryDate = "23 سبتمبر 2026 - 20:15",
-                    status = "تم التسليم بنجاح ✅",
-                    neighborhood = "حي الوئام",
-                    driverName = "أمين بوزيد"
-                ),
-                CustomerPastOrder(
-                    id = 1088,
-                    orderNumber = "#SG-1088",
-                    shopName = "بيتزا وبرغر البرج العائلي",
-                    itemsSummary = "1x بيتزا سوبريم سور الغزلان عائلية، 1x بيبسي عائلي",
-                    totalPrice = 1400,
-                    deliveryFee = 200,
-                    deliveryDate = "22 سبتمبر 2026 - 19:30",
-                    status = "تم التسليم بنجاح ✅",
-                    neighborhood = "حي 114 مسكن",
-                    driverName = "كريم منصوري"
-                ),
-                CustomerPastOrder(
-                    id = 1075,
-                    orderNumber = "#SG-1075",
-                    shopName = "فاست فود ومشاوي الوئام",
-                    itemsSummary = "2x تاكوس جزائري مشكل، 1x كوكاكولا",
-                    totalPrice = 1000,
-                    deliveryFee = 200,
-                    deliveryDate = "20 سبتمبر 2026 - 14:10",
-                    status = "تم التسليم بنجاح ✅",
-                    neighborhood = "وسط المدينة",
-                    driverName = "ياسين خليل"
-                )
-            )
-            saveHistory(initialArray)
+            _orderHistory.value = emptyList()
         } else {
             try {
                 val list = mutableListOf<CustomerPastOrder>()

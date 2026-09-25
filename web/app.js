@@ -14,105 +14,11 @@ let routePolyline = null;
 let ws = null;
 let trackingInterval = null;
 
-// Initial Sour El Ghozlane Stores Data
-const SHOPS = [
-  {
-    id: 1,
-    name: 'مطعم الأوراس للشواء والوجبات التقليدية',
-    category: 'مشويات وأطباق تقليدية',
-    neighborhood: 'وسط المدينة',
-    address: 'شارع أول نوفمبر، قرب ساحة البلدية، سور الغزلان',
-    lat: 36.1485,
-    lon: 3.6905,
-    phone: '+213551111111',
-    deliveryTime: '20-30 دقيقة',
-    rating: '4.8 ★',
-    products: [
-      { id: 101, name: 'شواء نصف دجاجة على الفحم', desc: 'متبل مع خبز طازج وبطاطا مقلية وصلصات حارة', price: 750 },
-      { id: 102, name: 'سندويش كبدة مشوية دبل', desc: 'كبدة عجل طازجة مع توابل جزائرية وسلطة وبطاطا', price: 400 },
-      { id: 103, name: 'شربة فريك جزائرية بلحم العجل', desc: 'شربة فريك تقليدية غنية مع الدبشة والنعناع', price: 250 },
-      { id: 104, name: 'مشروب حمود بوعلام 1 لتر', desc: 'بارد ومنعش', price: 150 },
-    ]
-  },
-  {
-    id: 2,
-    name: 'بيتزا وبرغر البرج العائلي',
-    category: 'بيتزا وفاست فود',
-    neighborhood: 'حي ذراع البرج',
-    address: 'حي ذراع البرج، الطريق الرئيسي، سور الغزلان',
-    lat: 36.1550,
-    lon: 3.6840,
-    phone: '+213552222222',
-    deliveryTime: '15-25 دقيقة',
-    rating: '4.9 ★',
-    products: [
-      { id: 201, name: 'بيتزا كاري كلاسيك فورماج ودبشة', desc: 'صلصة طماطم محلية، جبن أحمر وزيتون', price: 450 },
-      { id: 202, name: 'بيتزا ميغا تشيز 4 أجبان', desc: 'موزاريلا، غودا، كاممبير وصلصة بيضاء', price: 800 },
-      { id: 203, name: 'برغر لحم دبل ميكس تشيز', desc: 'شريحتان لحم بقري محلي مع بطاطا وصلصة خاصة', price: 500 },
-      { id: 204, name: 'تاكوس كوردون بلو فرماج', desc: 'تاكوس محشو باللحم والكوردون بلو مع صلصة الجبن', price: 600 }
-    ]
-  },
-  {
-    id: 3,
-    name: 'فاست فود ومشاوي الوئام',
-    category: 'سندويشات سريعة',
-    neighborhood: 'حي الوئام',
-    address: 'حي الوئام، بجانب المسجد الجديد، سور الغزلان',
-    lat: 36.1520,
-    lon: 3.6960,
-    phone: '+213556666666',
-    deliveryTime: '25-35 دقيقة',
-    rating: '4.6 ★',
-    products: [
-      { id: 301, name: 'سندويش شاورما دجاج مقرمش خبز صاج', desc: 'دجاج متبل مع صلصة جزائرية وبطاطا', price: 350 },
-      { id: 302, name: 'بانيني ميكس لحم وجبن', desc: 'مضغوط على الجريل مع جبن ذائب', price: 380 }
-    ]
-  },
-  {
-    id: 4,
-    name: 'حلويات ومخبزة باب الجزائر',
-    category: 'حلويات ومخبوزات',
-    neighborhood: 'حي باب الجزائر',
-    address: 'قرب باب الجزائر التاريخي، سور الغزلان',
-    lat: 36.1495,
-    lon: 3.6880,
-    phone: '+213557777777',
-    deliveryTime: '15-20 دقيقة',
-    rating: '4.9 ★',
-    products: [
-      { id: 401, name: 'قلب اللوز الجزائري بالسمن والعسل (4 قطع)', desc: 'قلب اللوز تقليدي محشي باللوز البلدي', price: 300 },
-      { id: 402, name: 'كرواسون وميلفاي طازج (علبة مشكلة)', desc: 'مخبوزات الصباح الفرنسية الطازجة', price: 400 }
-    ]
-  }
-];
+// Dynamic Stores & Drivers Data (Populated from API or Merchants)
+let SHOPS = [];
+let DRIVERS = [];
 
-// Online Drivers in Sour El Ghozlane
-const DRIVERS = [
-  {
-    id: 4,
-    name: 'أمين التوصيل (دراجة نارية SYM)',
-    vehicle: 'دراجة SYM 125cc',
-    phone: '+213553333333',
-    lat: 36.1482,
-    lon: 3.6912,
-    distanceKm: 0.6,
-    etaMins: 5,
-    rating: '4.9 ★'
-  },
-  {
-    id: 5,
-    name: 'كريم السريع (سكوتر فوري)',
-    vehicle: 'سكوتر Peugeot Tweet',
-    phone: '+213554444444',
-    lat: 36.1465,
-    lon: 3.6890,
-    distanceKm: 1.2,
-    etaMins: 8,
-    rating: '4.7 ★'
-  }
-];
-
-// Neighborhood coordinates
+// Neighborhood coordinates in Sour El Ghozlane
 const NEIGHBORHOODS = {
   'وسط المدينة': [36.1485, 3.6905],
   'حي الوئام': [36.1520, 3.6960],
@@ -125,10 +31,77 @@ const NEIGHBORHOODS = {
   'حي النصر': [36.1510, 3.7010]
 };
 
+// Fetch real shops and products from API
+async function fetchShopsFromApi() {
+  try {
+    const res = await fetch('/api/shops');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.shops && data.shops.length > 0) {
+        const fullShops = await Promise.all(data.shops.map(async (s) => {
+          let products = [];
+          try {
+            const prodRes = await fetch(`/api/shops/${s.id}/products`);
+            if (prodRes.ok) {
+              const pData = await prodRes.json();
+              products = (pData.products || []).map(p => ({
+                id: p.id,
+                name: p.name,
+                desc: p.description || '',
+                price: parseFloat(p.price_da) || 0
+              }));
+            }
+          } catch (e) {}
+          return {
+            id: s.id,
+            name: s.name,
+            category: s.category || 'عام',
+            neighborhood: s.address_description || 'سور الغزلان',
+            address: s.address_description || 'سور الغزلان',
+            lat: parseFloat(s.lat) || 36.148,
+            lon: parseFloat(s.lng) || 3.690,
+            deliveryTime: '20-30 دقيقة',
+            rating: '5.0 ★',
+            products
+          };
+        }));
+        SHOPS = fullShops;
+      }
+    }
+  } catch (err) {
+    console.log('[API] Using local shops store');
+  }
+  renderShops();
+}
+
+// Fetch real online drivers from API
+async function fetchDriversFromApi() {
+  try {
+    const res = await fetch('/api/drivers');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.drivers && data.drivers.length > 0) {
+        DRIVERS = data.drivers.map(d => ({
+          id: d.id,
+          name: d.full_name || d.name || 'سائق معتمد',
+          vehicle: d.vehicle_type || 'دراجة نارية',
+          phone: d.phone,
+          lat: parseFloat(d.lat) || 36.148,
+          lon: parseFloat(d.lng) || 3.690,
+          distanceKm: 1.0,
+          etaMins: 5,
+          rating: '5.0 ★'
+        }));
+      }
+    }
+  } catch (e) {}
+}
+
 // Initialize App
 window.addEventListener('DOMContentLoaded', () => {
   initOrderHistoryStorage();
-  renderShops();
+  fetchShopsFromApi();
+  fetchDriversFromApi();
   initWebSocket();
 });
 
@@ -141,16 +114,18 @@ function initOrderHistoryStorage() {
     try {
       customerOrderHistory = JSON.parse(stored);
     } catch (e) {
-      customerOrderHistory = getDefaultPastOrders();
+      customerOrderHistory = [];
     }
   } else {
-    customerOrderHistory = getDefaultPastOrders();
-    localStorage.setItem('customer_past_orders_array', JSON.stringify(customerOrderHistory));
+    customerOrderHistory = [];
+    localStorage.setItem('customer_past_orders_array', JSON.stringify([]));
   }
   updateOrderHistoryBadge();
 }
 
 function getDefaultPastOrders() {
+  return [];
+}
   return [
     {
       id: 1092,
@@ -262,7 +237,7 @@ function reorderShopByName(shopName) {
 function renderShops(filteredList = SHOPS) {
   const container = document.getElementById('shopsGrid');
   if (filteredList.length === 0) {
-    container.innerHTML = '<div style="padding: 20px; text-align: center; color: #94a3b8; grid-column: 1/-1;">لا توجد مطاعم مطابقة للبحث</div>';
+    container.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: #94a3b8; grid-column: 1/-1;"><span style="font-size: 32px; display: block; margin-bottom: 10px;">🏬</span><strong style="font-size: 16px; color: #f8fafc;">لا توجد متاجر أو مطاعم مضافة حالياً</strong><p style="font-size: 12px; margin-top: 6px; color: #94a3b8;">يمكن لأصحاب المتاجر والمطاعم تسجيل متاجرهم وإضافة منتجاتهم من قائمة الأدوار في الأعلى.</p></div>';
     return;
   }
   container.innerHTML = filteredList.map(s => `
