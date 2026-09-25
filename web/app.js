@@ -884,6 +884,29 @@ function applyUserSession(user) {
   if (nameInput && user.full_name) nameInput.value = user.full_name;
   if (phoneInput && user.phone) phoneInput.value = user.phone;
 
+  // Handle Pending Admin Approval Banner
+  const banner = document.getElementById('pendingApprovalBanner');
+  const pendingDesc = document.getElementById('pendingRoleDesc');
+  const waContact = document.getElementById('pendingWhatsAppContact');
+
+  if (banner) {
+    if (user.status === 'pending') {
+      banner.classList.remove('hidden');
+      if (pendingDesc) {
+        const roleArabic = user.role === 'store' ? 'صاحب متجر / مطعم' : (user.role === 'driver' ? 'سائق توصيل معتمد' : 'مستخدم');
+        pendingDesc.innerHTML = `مرحباً بك يا <strong>${user.full_name}</strong>! تم التحقق من رقم هاتفك بنجاح عبر (واتساب / تلغرام). طلب انضمامك كـ <strong>${roleArabic}</strong> قيد المراجعة حالياً من قبل إدارة SGdelivery في سور الغزلان لتأكيد الوثائق وتفعيل نشاطك على الخريطة.`;
+      }
+      if (waContact) {
+        const text = encodeURIComponent(`السلام عليكم إدارة SGdelivery، لقد سجلت حساب جديد كـ (${user.role}) برقم (${user.phone}) واسم (${user.full_name}) وأرجو الموافقة والتفعيل.`);
+        waContact.href = `https://wa.me/213555000000?text=${text}`;
+      }
+      startApprovalPoller();
+    } else {
+      banner.classList.add('hidden');
+      stopApprovalPoller();
+    }
+  }
+
   // Auto-route role view
   const role = (user.role || 'customer').toLowerCase();
   const targetRole = (role === 'store' || role === 'shop') ? 'shop' : role;
@@ -892,6 +915,69 @@ function applyUserSession(user) {
     roleSelect.value = targetRole;
   }
   switchRole(targetRole);
+}
+
+let approvalPollerInterval = null;
+
+function startApprovalPoller() {
+  stopApprovalPoller();
+  approvalPollerInterval = setInterval(async () => {
+    if (!currentAuthUser || currentAuthUser.status !== 'pending') {
+      stopApprovalPoller();
+      return;
+    }
+    const token = localStorage.getItem('sg_auth_token');
+    if (!token) return;
+    try {
+      const res = await fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user && data.user.status === 'active') {
+          stopApprovalPoller();
+          localStorage.setItem('sg_auth_user', JSON.stringify(data.user));
+          applyUserSession(data.user);
+          alert('🎉 تهانينا! تمت الموافقة على حسابك وتفعيله بنجاح من قبل إدارة SGdelivery!');
+        }
+      }
+    } catch (e) {}
+  }, 12000);
+}
+
+function stopApprovalPoller() {
+  if (approvalPollerInterval) {
+    clearInterval(approvalPollerInterval);
+    approvalPollerInterval = null;
+  }
+}
+
+async function checkAccountApprovalStatus() {
+  const token = localStorage.getItem('sg_auth_token');
+  if (!token) {
+    alert('يرجى تسجيل الدخول أولاً');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/me', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (res.ok && data.user) {
+      if (data.user.status === 'active') {
+        localStorage.setItem('sg_auth_user', JSON.stringify(data.user));
+        applyUserSession(data.user);
+        alert('🎉 تهانينا! تمت الموافقة على حسابك وتفعيله بنجاح من قبل الإدارة!');
+      } else {
+        alert('⏳ حسابك ما زال قيد المراجعة لدى الإدارة. يمكنك التواصل معهم عبر واتساب لتسريع الموافقة والتفعيل.');
+      }
+    } else {
+      alert('تعذر جلب حالة الحساب حالياً.');
+    }
+  } catch (err) {
+    alert('تعذر الاتصال بالخادم.');
+  }
 }
 
 function updateAuthNav(user) {
@@ -910,7 +996,8 @@ function updateAuthNav(user) {
         'driver': 'السائق 🛵',
         'customer': 'الزبون 👤'
       }[user.role] || user.role;
-      nameLabel.innerText = `${user.full_name || 'حسابي'} (${roleArabic})`;
+      const statusBadge = user.status === 'pending' ? ' (⏳ قيد المراجعة)' : '';
+      nameLabel.innerText = `${user.full_name || 'حسابي'} (${roleArabic})${statusBadge}`;
     }
   } else {
     if (loginBtn) loginBtn.classList.remove('hidden');
@@ -937,6 +1024,9 @@ function switchAuthTab(tab) {
   const regBtn = document.getElementById('tabRegisterBtn');
   const loginForm = document.getElementById('loginForm');
   const regForm = document.getElementById('registerForm');
+  const otpForm = document.getElementById('otpVerifyForm');
+
+  if (otpForm) otpForm.classList.add('hidden');
 
   if (tab === 'login') {
     if (loginBtn) loginBtn.classList.add('active');
@@ -949,6 +1039,14 @@ function switchAuthTab(tab) {
     if (regForm) regForm.classList.remove('hidden');
     if (loginForm) loginForm.classList.add('hidden');
   }
+  setAuthAlert('');
+}
+
+function backToRegisterForm() {
+  const regForm = document.getElementById('registerForm');
+  const otpForm = document.getElementById('otpVerifyForm');
+  if (otpForm) otpForm.classList.add('hidden');
+  if (regForm) regForm.classList.remove('hidden');
   setAuthAlert('');
 }
 
@@ -1034,6 +1132,8 @@ async function handleLoginSubmit(e) {
   }
 }
 
+let pendingRegData = null;
+
 async function handleRegisterSubmit(e) {
   e.preventDefault();
   const role = document.getElementById('regRoleSelect').value;
@@ -1048,72 +1148,148 @@ async function handleRegisterSubmit(e) {
     return;
   }
 
-  let endpoint = '/api/auth/register/customer';
-  let payload = { full_name: name, phone, password, address };
+  let vehicle_type = null;
+  let license_plate = null;
+  let store_category = null;
 
   if (role === 'store') {
-    endpoint = '/api/auth/register/store';
-    const category = document.getElementById('regStoreCategory').value;
-    payload = { store_name: name, full_name: name, phone, password, address, category };
+    store_category = document.getElementById('regStoreCategory').value;
   } else if (role === 'driver') {
-    endpoint = '/api/auth/register/driver';
-    const vehicle_type = document.getElementById('regVehicle').value || 'دراجة SYM';
-    const license_plate = document.getElementById('regLicensePlate').value || '12345-126-10';
-    payload = { full_name: name, phone, password, vehicle_type, license_plate };
+    vehicle_type = document.getElementById('regVehicle').value || 'دراجة SYM';
+    license_plate = document.getElementById('regLicensePlate').value || '12345-126-10';
   }
 
+  pendingRegData = {
+    name,
+    phone,
+    password,
+    role,
+    address,
+    vehicle_type,
+    license_plate,
+    store_category
+  };
+
   submitBtn.disabled = true;
-  submitBtn.innerText = 'جاري إنشاء الحساب... ⏳';
+  submitBtn.innerText = 'جاري إرسال كود التفعيل عبر واتساب/تلغرام... ⏳';
   setAuthAlert('');
 
   try {
-    const res = await fetch(endpoint, {
+    const res = await fetch('/api/auth/send-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ phone })
     });
     const data = await res.json();
 
     if (!res.ok) {
-      setAuthAlert(data.error || 'حدث خطأ أثناء إنشاء الحساب.');
+      setAuthAlert(data.error || 'حدث خطأ أثناء إرسال كود التحقق.');
       submitBtn.disabled = false;
       submitBtn.innerText = 'إنشاء حساب وتأكيد ✅';
       return;
     }
 
-    if (role === 'customer' && data.tokens) {
-      localStorage.setItem('sg_auth_user', JSON.stringify(data.user));
-      localStorage.setItem('sg_auth_token', data.tokens.accessToken);
-      setAuthAlert('تم إنشاء حساب الزبون بنجاح! مرحباً بك 🎉', 'success');
-      setTimeout(() => {
-        const modal = document.getElementById('authModal');
-        if (modal) modal.classList.add('hidden');
-        applyUserSession(data.user);
-        submitBtn.disabled = false;
-        submitBtn.innerText = 'إنشاء حساب وتأكيد ✅';
-      }, 900);
-    } else {
-      setAuthAlert(data.message || 'تم تسجيل الحساب بنجاح! حسابك قيد المراجعة والموافقة من الإدارة.', 'success');
-      setTimeout(() => {
-        switchAuthTab('login');
-        document.getElementById('loginPhone').value = phone;
-        submitBtn.disabled = false;
-        submitBtn.innerText = 'إنشاء حساب وتأكيد ✅';
-      }, 1500);
-    }
+    // Set WhatsApp and Telegram links
+    const waLink = document.getElementById('otpWhatsAppLink');
+    const tgLink = document.getElementById('otpTelegramLink');
+    const codeVal = document.getElementById('otpQuickCodeVal');
+
+    if (waLink && data.whatsapp_url) waLink.href = data.whatsapp_url;
+    if (tgLink && data.telegram_url) tgLink.href = data.telegram_url;
+    if (codeVal && data.code) codeVal.innerText = data.code;
+
+    // Transition to OTP screen
+    document.getElementById('registerForm').classList.add('hidden');
+    document.getElementById('otpVerifyForm').classList.remove('hidden');
+
+    submitBtn.disabled = false;
+    submitBtn.innerText = 'إنشاء حساب وتأكيد ✅';
+    setAuthAlert('تم توليد كود التحقق! يمكنك استلامه فوراً عبر واتساب أو تلغرام بالأسفل.', 'success');
   } catch (err) {
-    setAuthAlert('تعذر الاتصال بالخادم.');
+    setAuthAlert('تعذر الاتصال بالخادم لإرسال كود التحقق.');
     submitBtn.disabled = false;
     submitBtn.innerText = 'إنشاء حساب وتأكيد ✅';
   }
 }
 
+async function submitOtpVerification() {
+  if (!pendingRegData) {
+    setAuthAlert('يرجى إعادة تعبئة بيانات التسجيل');
+    backToRegisterForm();
+    return;
+  }
+
+  const codeInput = document.getElementById('otpInputCode');
+  const code = codeInput ? codeInput.value.trim() : '';
+  const confirmBtn = document.getElementById('otpConfirmBtn');
+
+  if (!code || code.length < 4) {
+    setAuthAlert('يرجى إدخال رمز التحقق المكون من 6 أرقام');
+    return;
+  }
+
+  confirmBtn.disabled = true;
+  confirmBtn.innerText = 'جاري تأكيد الرمز... ⏳';
+  setAuthAlert('');
+
+  try {
+    const res = await fetch('/api/auth/verify-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone: pendingRegData.phone,
+        code,
+        full_name: pendingRegData.name,
+        role: pendingRegData.role,
+        password: pendingRegData.password,
+        address: pendingRegData.address,
+        vehicle_type: pendingRegData.vehicle_type,
+        license_plate: pendingRegData.license_plate,
+        store_category: pendingRegData.store_category
+      })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      setAuthAlert(data.error || 'كود التحقق غير صحيح أو انتهت صلاحيته');
+      confirmBtn.disabled = false;
+      confirmBtn.innerText = 'تأكيد الرمز والدخول إلى حسابي ✅';
+      return;
+    }
+
+    localStorage.setItem('sg_auth_user', JSON.stringify(data.user));
+    if (data.tokens && data.tokens.accessToken) {
+      localStorage.setItem('sg_auth_token', data.tokens.accessToken);
+    } else if (data.token) {
+      localStorage.setItem('sg_auth_token', data.token);
+    }
+
+    setAuthAlert('تم تأكيد رقم هاتفك وتفعيل الحساب بنجاح! 🎉', 'success');
+
+    setTimeout(() => {
+      const modal = document.getElementById('authModal');
+      if (modal) modal.classList.add('hidden');
+      applyUserSession(data.user);
+      confirmBtn.disabled = false;
+      confirmBtn.innerText = 'تأكيد الرمز والدخول إلى حسابي ✅';
+      pendingRegData = null;
+    }, 900);
+  } catch (err) {
+    setAuthAlert('تعذر الاتصال بالخادم لتأكيد الرمز.');
+    confirmBtn.disabled = false;
+    confirmBtn.innerText = 'تأكيد الرمز والدخول إلى حسابي ✅';
+  }
+}
+
 function logoutUser() {
+  stopApprovalPoller();
   localStorage.removeItem('sg_auth_user');
   localStorage.removeItem('sg_auth_token');
   sessionStorage.removeItem('sg_guest_browsing');
   currentAuthUser = null;
   updateAuthNav(null);
+  const banner = document.getElementById('pendingApprovalBanner');
+  if (banner) banner.classList.add('hidden');
   switchRole('customer');
   const roleSelect = document.getElementById('roleSelect');
   if (roleSelect) roleSelect.value = 'customer';

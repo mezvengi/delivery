@@ -57,6 +57,28 @@
 
   <!-- Main App Container -->
   <main class="app-body">
+    <!-- BANNER: PENDING ADMIN APPROVAL -->
+    <div id="pendingApprovalBanner" class="pending-approval-card hidden">
+      <div class="pending-icon">⏳</div>
+      <div class="pending-info">
+        <h3>حسابك بانتظار موافقة وتفعيل الإدارة</h3>
+        <p id="pendingRoleDesc">
+          مرحباً بك! تم التحقق من رقم هاتفك بنجاح عبر (واتساب / تلغرام). طلب انضمامك قيد المراجعة حالياً من قبل إدارة SGdelivery في سور الغزلان للتأكد من الوثائق وتفعيل نشاطك على الخريطة.
+        </p>
+        <div class="pending-actions">
+          <button class="btn btn-sm btn-primary" onclick="checkAccountApprovalStatus()">
+            فحص حالة التفعيل 🔄
+          </button>
+          <a id="pendingWhatsAppContact" href="https://wa.me/213555000000?text=مرحباً%20إدارة%20SGdelivery%D8%8C%20أرجو%20تفعيل%20حسابي" target="_blank" class="btn btn-sm" style="background:#25D366; color:white; text-decoration:none; display:inline-flex; align-items:center; gap:5px;">
+            <span>💬</span> تواصل مع الإدارة عبر واتساب
+          </a>
+          <button class="btn btn-sm btn-secondary" onclick="logoutUser()">
+            تسجيل الخروج 🚪
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- VIEW 1: CUSTOMER VIEW -->
     <section id="customerView" class="view-section active">
       <!-- Store List Subview -->
@@ -468,6 +490,46 @@
           إنشاء حساب وتأكيد ✅
         </button>
       </form>
+
+      <!-- Step 3: OTP Verification Form (WhatsApp & Telegram) -->
+      <div id="otpVerifyForm" class="auth-form hidden">
+        <div style="text-align:center; margin-bottom:14px;">
+          <span style="font-size:32px; display:block; margin-bottom:6px;">📲</span>
+          <h3 style="font-size:16px; font-weight:800; color:var(--text-main);">تأكيد رقم الهاتف عبر واتساب أو تلغرام</h3>
+          <p style="font-size:12px; color:var(--text-muted); margin-top:4px;">
+            اختر الوسيلة المفضلة لديك لاستلام كود التحقق السريع المكون من 6 أرقام:
+          </p>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;">
+          <a id="otpWhatsAppLink" href="#" target="_blank" class="btn btn-block" style="background:#25D366; color:white; font-weight:700; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px; font-size:14px;">
+            <span>💬</span> استلام الكود عبر واتساب (WhatsApp)
+          </a>
+          <a id="otpTelegramLink" href="#" target="_blank" class="btn btn-block" style="background:#0088cc; color:white; font-weight:700; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px; font-size:14px;">
+            <span>✈️</span> استلام الكود عبر تلغرام (Telegram)
+          </a>
+        </div>
+
+        <div id="otpQuickCodeCard" style="background:var(--card-subtle); border:1px dashed var(--primary); border-radius:8px; padding:10px; text-align:center; margin-bottom:14px;">
+          <span style="font-size:11px; color:var(--text-muted); display:block;">كود التفعيل التجريبي السريع والمباشر:</span>
+          <strong id="otpQuickCodeVal" style="font-size:22px; color:var(--primary); letter-spacing:4px;">------</strong>
+        </div>
+
+        <div class="form-group">
+          <label style="text-align:center; display:block; font-weight:700;">أدخل رمز التحقق (6 أرقام):</label>
+          <input type="text" id="otpInputCode" class="form-control" placeholder="000000" maxlength="6" style="text-align:center; font-size:22px; letter-spacing:6px; font-weight:800;">
+        </div>
+
+        <button type="button" id="otpConfirmBtn" class="btn btn-primary btn-block" onclick="submitOtpVerification()">
+          تأكيد الرمز والدخول إلى حسابي ✅
+        </button>
+
+        <div style="text-align:center; margin-top:12px;">
+          <button type="button" class="btn btn-sm btn-outline" onclick="backToRegisterForm()">
+            تعديل البيانات أو رقم الهاتف ↩
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 

@@ -837,3 +837,54 @@ body {
   color: #4ade80;
 }
 
+/* Pending Admin Approval Banner */
+.pending-approval-card {
+  background: var(--card-bg);
+  border: 2px solid var(--warning);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 15px var(--shadow);
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.pending-icon {
+  font-size: 36px;
+  background: rgba(245, 158, 11, 0.15);
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pending-info h3 {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--warning);
+  margin-bottom: 6px;
+}
+
+.pending-info p {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.pending-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
