@@ -691,17 +691,112 @@ function renderDriverDashboard() {
 }
 
 function renderAdminDashboard() {
-  document.getElementById('adminOrdersList').innerHTML = `
-    <div class="product-card" style="font-size:13px;">
-      <div style="display:flex;justify-content:space-between;">
-        <span>#SOUR-8921</span>
-        <span>مطعم الأوراس</span>
-        <span>السائق: أمين (SYM 125)</span>
-        <span style="color:#22c55e;">قيد التوصيل 🛵</span>
-        <strong>1,150 دج (COD)</strong>
+  loadPendingUsers();
+  const ordersContainer = document.getElementById('adminOrdersList');
+  if (ordersContainer) {
+    ordersContainer.innerHTML = `
+      <div style="padding:16px; text-align:center; color:var(--text-muted); background:var(--card-subtle); border-radius:10px; border:1px solid var(--border);">
+        لا توجد طلبات جارية حالياً في سجل العمليات.
       </div>
-    </div>
-  `;
+    `;
+  }
+}
+
+async function loadPendingUsers() {
+  const container = document.getElementById('adminPendingUsersList');
+  if (!container) return;
+
+  const token = localStorage.getItem('sg_auth_token');
+  if (!token) {
+    container.innerHTML = `
+      <div style="padding:14px; text-align:center; color:var(--text-muted); background:var(--card-subtle); border-radius:10px; border:1px solid var(--border);">
+        يرجى تسجيل الدخول بحساب الإدارة لعرض وتفعيل الحسابات المعلقة.
+        <br><button class="btn btn-sm btn-primary" style="margin-top:8px;" onclick="openAuthModal('login')">تسجيل الدخول كمسؤول 🔑</button>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = '<div style="padding:12px; text-align:center; color:var(--text-muted);">جاري جلب الطلبات المعلقة... ⏳</div>';
+
+  try {
+    const res = await fetch('/api/admin/pending-users', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.status === 401 || res.status === 403) {
+      container.innerHTML = '<div style="padding:14px; text-align:center; color:#ef4444; background:var(--card-subtle); border-radius:10px;">عذراً، يجب تسجيل الدخول بحساب مدير النظام (Admin) لتفعيل الحسابات.</div>';
+      return;
+    }
+    const data = await res.json();
+    const users = data.users || [];
+
+    if (users.length === 0) {
+      container.innerHTML = '<div style="padding:16px; text-align:center; color:#34d399; background:var(--card-subtle); border-radius:10px; border:1px solid var(--border);">✅ لا توجد حسابات معلقة حالياً. جميع المتاجر والسائقين مفعّلون!</div>';
+      return;
+    }
+
+    container.innerHTML = users.map(u => {
+      const isStore = u.role === 'store';
+      const typeLabel = isStore ? '🏬 متجر / مطعم' : '🛵 سائق توصيل';
+      const details = isStore
+        ? `<strong>${u.profile?.name || u.full_name}</strong> - تصنيف: ${u.profile?.category || 'عام'}<br>العنوان: ${u.profile?.address || 'سور الغزلان'}`
+        : `<strong>${u.full_name}</strong> - دراجة: ${u.profile?.vehicle_type || 'SYM'}<br>لوحة الترقيم: ${u.profile?.license_plate || 'DZ'}`;
+
+      return `
+        <div class="shop-card" style="padding:14px; border-left: 4px solid var(--warning); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div>
+            <span class="badge" style="background:var(--warning); color:black; font-weight:800; padding:2px 8px; border-radius:6px;">${typeLabel}</span>
+            <div style="margin:6px 0; font-size:13px; color:var(--text-main);">
+              ${details}
+            </div>
+            <span style="font-size:11px; color:var(--text-muted);">📞 هاتف: <strong>${u.phone}</strong> | تاريخ التسجيل: ${new Date(u.created_at).toLocaleDateString('ar-DZ')}</span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-sm btn-primary" onclick="setAccountStatus(${u.id}, 'active', '${u.full_name}')" style="background:#22c55e;">
+              الموافقة والتفعيل ✅
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="setAccountStatus(${u.id}, 'suspended', '${u.full_name}')" style="background:#ef4444;">
+              رفض / تعليق ❌
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    container.innerHTML = '<div style="padding:12px; text-align:center; color:#ef4444;">تعذر جلب الحسابات المعلقة.</div>';
+  }
+}
+
+async function setAccountStatus(userId, status, userName) {
+  const token = localStorage.getItem('sg_auth_token');
+  if (!token) {
+    alert('يرجى تسجيل الدخول بحساب الإدارة أولاً');
+    return;
+  }
+
+  const actionName = status === 'active' ? 'تفعيل' : 'تعليق / رفض';
+  if (!confirm(`هل أنت متأكد من ${actionName} حساب (${userName})؟`)) return;
+
+  try {
+    const res = await fetch(`/api/admin/users/${userId}/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ status })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      alert(data.message || `تم ${actionName} الحساب بنجاح!`);
+      loadPendingUsers();
+      fetchShopsFromApi();
+      fetchDriversFromApi();
+    } else {
+      alert(data.error || 'حدث خطأ أثناء تحديث حالة الحساب');
+    }
+  } catch (err) {
+    alert('تعذر الاتصال بالخادم');
+  }
 }
 
 function toggleDriverOnline(isOnline) {
