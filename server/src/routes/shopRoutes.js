@@ -70,7 +70,7 @@ router.post('/', authMiddleware, requireRole('ADMIN', 'SHOP'), async (req, res) 
 });
 
 // Add product to shop (Shop owner or Admin)
-router.post('/:id/products', authMiddleware, requireRole('ADMIN', 'SHOP'), async (req, res) => {
+router.post('/:id/products', authMiddleware, requireRole('admin', 'store', 'shop'), async (req, res) => {
   const shopId = req.params.id;
   const { name, description, price_da, image_url } = req.body;
 
@@ -79,8 +79,9 @@ router.post('/:id/products', authMiddleware, requireRole('ADMIN', 'SHOP'), async
   }
 
   try {
-    // If SHOP role, check ownership
-    if (req.user.role === 'SHOP') {
+    const userRole = (req.user.role || '').toLowerCase();
+    // If store role, check ownership
+    if (userRole === 'shop' || userRole === 'store') {
       const check = await pool.query('SELECT user_id FROM shops WHERE id = $1', [shopId]);
       if (check.rowCount === 0 || check.rows[0].user_id !== req.user.id) {
         return res.status(403).json({ error: 'غير مصرح لك بإضافة منتجات لهذا المتجر' });
