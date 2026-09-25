@@ -3,1230 +3,342 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>توصيل سور الغزلان</title>
-  
-  <!-- PWA Manifest & Icons -->
-  <link rel="manifest" href="/app/manifest.json">
-  <meta name="theme-color" content="#0284c7">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  
-  <!-- Leaflet CSS for OpenStreetMap -->
+  <title>SGdelivery | تطبيق توصيل الطلبات - سور الغزلان</title>
+  <meta name="theme-color" content="#EA580C">
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  
-  <style>
-    :root {
-      --primary: #0284c7;
-      --primary-dark: #0369a1;
-      --secondary: #10b981;
-      --bg: #f8fafc;
-      --card: #ffffff;
-      --text: #0f172a;
-      --text-muted: #64748b;
-      --border: #e2e8f0;
-      --danger: #ef4444;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Arabic', sans-serif; }
-    body { background-color: var(--bg); color: var(--text); padding-bottom: 75px; }
-
-    header {
-      background: var(--card);
-      border-bottom: 1px solid var(--border);
-      padding: 12px 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      position: sticky;
-      top: 0;
-      z-index: 1000;
-    }
-    .brand { font-size: 1.1rem; font-weight: bold; color: var(--primary); display: flex; align-items: center; gap: 8px; }
-    .zone-tag { font-size: 0.75rem; background: #e0f2fe; color: var(--primary); padding: 4px 8px; border-radius: 12px; font-weight: bold; }
-
-    .container { max-width: 600px; margin: 0 auto; padding: 12px; }
-
-    .card {
-      background: var(--card);
-      border-radius: 12px;
-      padding: 16px;
-      border: 1px solid var(--border);
-      margin-bottom: 12px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
-    .card-title { font-size: 1rem; font-weight: bold; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-
-    /* Buttons & Inputs */
-    button {
-      background: var(--primary);
-      color: white;
-      border: none;
-      padding: 10px 16px;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      font-weight: bold;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      width: 100%;
-    }
-    button:active { opacity: 0.9; }
-    button.btn-secondary { background: var(--secondary); }
-    button.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
-    input, select, textarea {
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      font-size: 0.95rem;
-      margin-bottom: 10px;
-      background: var(--card);
-      color: var(--text);
-    }
-
-    /* Shops Grid / Cards */
-    .shop-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 14px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      margin-bottom: 10px;
-      background: var(--card);
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .shop-item:hover { border-color: var(--primary); background: #f0f9ff; }
-    .shop-info h3 { font-size: 1rem; color: var(--text); margin-bottom: 4px; }
-    .shop-info p { font-size: 0.8rem; color: var(--text-muted); }
-
-    /* Products in Shop Page */
-    .product-card {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px;
-      border-bottom: 1px solid var(--border);
-    }
-    .product-card:last-child { border-bottom: none; }
-    .product-title { font-weight: bold; font-size: 0.95rem; }
-    .product-desc { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
-    .product-price { font-weight: bold; color: var(--primary); font-size: 1rem; margin-top: 4px; }
-    .qty-control { display: flex; align-items: center; gap: 8px; }
-    .qty-btn { width: 32px; height: 32px; border-radius: 6px; padding: 0; font-size: 1.1rem; }
-
-    /* Sticky Cart Bar */
-    .sticky-cart-bar {
-      position: sticky;
-      bottom: 70px;
-      background: #0f172a;
-      color: white;
-      padding: 12px 16px;
-      border-radius: 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 16px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-      z-index: 99;
-    }
-
-    /* Modal for Driver Selection */
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0,0,0,0.6);
-      display: none;
-      justify-content: center;
-      align-items: flex-end;
-      z-index: 2000;
-    }
-    .modal-sheet {
-      background: var(--card);
-      width: 100%;
-      max-width: 600px;
-      max-height: 90vh;
-      overflow-y: auto;
-      border-radius: 20px 20px 0 0;
-      padding: 20px;
-      box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
-      animation: slideUp 0.3s ease-out;
-    }
-    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-
-    #modalMap { height: 200px; width: 100%; border-radius: 10px; margin: 10px 0; border: 1px solid var(--border); }
-    #trackingMap { height: 260px; width: 100%; border-radius: 10px; margin: 10px 0; border: 1px solid var(--border); }
-
-    .driver-choice {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      margin-bottom: 8px;
-      background: #f8fafc;
-      cursor: pointer;
-    }
-    .driver-choice.active {
-      border: 2px solid var(--primary);
-      background: #e0f2fe;
-    }
-
-    /* Tracking Stepper */
-    .stepper { display: flex; justify-content: space-between; margin: 14px 0; position: relative; }
-    .stepper::before {
-      content: '';
-      position: absolute;
-      top: 14px;
-      left: 10%;
-      right: 10%;
-      height: 3px;
-      background: var(--border);
-      z-index: 0;
-    }
-    .step { position: relative; z-index: 1; text-align: center; font-size: 0.75rem; width: 25%; }
-    .step-icon {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      background: #e2e8f0;
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 4px;
-      font-weight: bold;
-    }
-    .step.active .step-icon { background: var(--primary); color: white; }
-    .step.done .step-icon { background: var(--secondary); color: white; }
-
-    /* Bottom Navigation */
-    nav.bottom-bar {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: var(--card);
-      border-top: 1px solid var(--border);
-      display: flex;
-      justify-content: space-around;
-      padding: 8px 0;
-      z-index: 1000;
-    }
-    .nav-btn {
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      font-size: 0.75rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      width: auto;
-      cursor: pointer;
-    }
-    .nav-btn.active { color: var(--primary); font-weight: bold; }
-    .nav-icon { font-size: 1.3rem; }
-
-    .status-badge { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; }
-    .status-NEW { background: #fef3c7; color: #b45309; }
-    .status-CONFIRMED { background: #e0f2fe; color: #0369a1; }
-    .status-OUT_FOR_DELIVERY { background: #fef08a; color: #854d0e; }
-    .status-DELIVERED { background: #dcfce7; color: #15803d; }
-  </style>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
-
-  <header>
-    <div class="brand">
-      <span>🛵</span>
-      <span>توصيل سور الغزلان</span>
-    </div>
-    <div style="display:flex; align-items:center; gap:6px;">
-      <a href="/app/sour-delivery.apk" download="sour-delivery.apk" style="text-decoration:none;">
-        <button type="button" style="width:auto; padding:4px 8px; font-size:0.75rem; background:#3b82f6;">
-          📥 تحميل APK
-        </button>
-      </a>
-      <button id="btnInstallPwa" style="display:none; width:auto; padding:4px 8px; font-size:0.75rem; background:var(--secondary);" onclick="triggerPwaInstall()">
-        📲 تثبيت
-      </button>
-      <span class="zone-tag">📍 سور الغزلان</span>
+  <!-- Header / Navigation Bar -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="brand">
+        <div class="brand-text">
+          <h1>تطبيق SGdelivery</h1>
+          <span class="badge">بلدية سور الغزلان • توصيل ثابت 200 دج</span>
+        </div>
+      </div>
+      
+      <!-- Role Switcher -->
+      <div class="role-selector">
+        <label for="roleSelect">الدور الحالي:</label>
+        <select id="roleSelect" onchange="switchRole(this.value)">
+          <option value="customer">الزبون (تصفح وطلب)</option>
+          <option value="shop">المتجر (استقبال وتحضير)</option>
+          <option value="driver">السائق (توصيل وبث GPS)</option>
+          <option value="admin">الإدارة (مراقبة وتوزيع)</option>
+        </select>
+      </div>
     </div>
   </header>
 
-  <div class="container">
-    <!-- VIEW 1: Customer View -->
-    <div id="customerView">
-      
-      <!-- SUB-VIEW 1A: List of Shops in Sour El Ghozlane -->
-      <div id="shopsListView">
-        <div class="card">
-          <div class="card-title">🏪 المتاجر والمطاعم في سور الغزلان</div>
-          <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
-            اختر متجراً أو مطعماً لتصفح قائمة منتجاته والطلب منه:
-          </p>
-          <div id="shopsContainer">جاري تحميل المتاجر...</div>
+  <!-- Main App Container -->
+  <main class="app-body">
+    <!-- VIEW 1: CUSTOMER VIEW -->
+    <section id="customerView" class="view-section active">
+      <!-- Store List Subview -->
+      <div id="storeListView">
+        <div class="hero-banner">
+          <h2>أشهى المأكولات والمطاعم إلى باب بيتك</h2>
+          <p>اختر مطعمك المفضل في سور الغزلان وسائق التوصيل الأقرب إليك بالدفع عند الاستلام</p>
         </div>
 
-        <!-- Previous Orders with Live Tracking Button -->
-        <div class="card">
-          <div class="card-title">📦 طلباتي الحالية</div>
-          <div id="ordersContainer">لا توجد طلبات سابقة.</div>
+        <!-- Order History Quick Link -->
+        <div class="order-history-link-card" onclick="showOrderHistoryView()" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 20px;">📋</span>
+            <div>
+              <strong style="font-size: 13px; color: var(--text-main); display: block;">سجل الطلبات السابقة ومواعيد التوصيل</strong>
+              <span style="font-size: 11px; color: var(--text-muted);">عرض المبالغ والوجبات المخزنة محلياً</span>
+            </div>
+          </div>
+          <span id="orderHistoryBadge" style="background: var(--primary); color: white; padding: 4px 10px; border-radius: 10px; font-size: 12px; font-weight: bold;">3 طلبات ➔</span>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-bar-container" style="margin-bottom: 14px;">
+          <input type="text" id="shopSearchInput" class="form-control" placeholder="🔍 ابحث عن مطعم أو وجبة (شواء، بيتزا، كبدة، برغر...)" oninput="handleSearchInput(this.value)">
+        </div>
+
+        <!-- Category Filter Bar (شريط التصنيفات) -->
+        <div class="category-filter-section" style="margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-weight: 700; font-size: 13px; color: var(--text-main);">التصنيفات والأنواع:</span>
+            <span id="resetCategoryBtn" style="font-size: 12px; color: var(--primary); font-weight: 700; cursor: pointer; display: none;" onclick="selectCategory('all')">إلغاء التصفية ✕</span>
+          </div>
+          <div class="categories-scroll-row" id="categoriesScrollRow" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;">
+            <button class="cat-pill active" onclick="selectCategory('all')">🍽️ الكل</button>
+            <button class="cat-pill" onclick="selectCategory('pizza')">🍕 بيتزا</button>
+            <button class="cat-pill" onclick="selectCategory('bbq')">🥩 شواء ومشويات</button>
+            <button class="cat-pill" onclick="selectCategory('fast_food')">🍔 وجبات سريعة</button>
+            <button class="cat-pill" onclick="selectCategory('sandwiches')">🥪 سندويشات</button>
+            <button class="cat-pill" onclick="selectCategory('sweets')">🥐 حلويات ومخبوزات</button>
+          </div>
+        </div>
+
+        <div class="section-title">
+          <h3 id="shopsSectionTitle">المتاجر والمطاعم المتاحة الآن في سور الغزلان</h3>
+        </div>
+
+        <div id="mealsSearchResults" class="products-grid hidden" style="margin-bottom: 20px;"></div>
+
+        <div id="shopsGrid" class="shops-grid">
+          <!-- Dynamically populated -->
         </div>
       </div>
 
-      <!-- SUB-VIEW 1B: Single Shop Page (All Products) -->
-      <div id="singleShopView" style="display:none;">
-        <button class="btn-outline" style="margin-bottom:10px;" onclick="showShopsList()">⬅️ العودة لجميع المتاجر</button>
-        
-        <div class="card" style="border-right: 4px solid var(--primary);">
-          <h2 id="currentShopName" style="font-size:1.15rem; margin-bottom:4px;">اسم المتجر</h2>
-          <p id="currentShopDesc" style="font-size:0.85rem; color:var(--text-muted);"></p>
+      <!-- Single Store Detail Subview -->
+      <div id="storeDetailView" class="hidden">
+        <button class="btn btn-secondary back-btn" onclick="showStoreList()">
+          ➔ العودة إلى قائمة المتاجر
+        </button>
+
+        <div id="storeHeaderCard" class="store-header-card">
+          <!-- Populated dynamically -->
         </div>
 
-        <div class="card">
-          <div class="card-title">🍽️ قائمة المنتجات المتاحة</div>
-          <div id="currentShopProducts">جاري جلب المنتجات...</div>
+        <h3 class="menu-heading">قائمة الوجبات والأسعار (بالدينار الجزائري)</h3>
+        <div id="productsGrid" class="products-grid">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Order History Subview -->
+      <div id="orderHistoryView" class="hidden">
+        <button class="btn btn-secondary back-btn" onclick="showStoreList()">
+          ➔ العودة إلى قائمة المتاجر
+        </button>
+
+        <div class="section-title">
+          <h3>📋 سجل طلباتك السابقة (تخزين محلي)</h3>
+          <p style="font-size: 12px; color: var(--text-muted);">جميع تفاصيل الطلبات، الأسعار الإجمالية بالدينار الجزائري، ومواعيد التوصيل</p>
         </div>
 
-        <!-- Sticky Cart & Order Button -->
-        <div class="sticky-cart-bar" id="cartBar" style="display:none;">
+        <div id="orderHistoryList" style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: SHOP VIEW -->
+    <section id="shopView" class="view-section hidden">
+      <div class="dashboard-header">
+        <h2>لوحة تحكم المتجر (مطعم الأوراس)</h2>
+        <span class="status-pill status-open">المتجر مفتوح لاستقبال الطلبات ✅</span>
+      </div>
+      <div id="shopOrdersList" class="orders-list">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
+
+    <!-- VIEW 3: DRIVER VIEW -->
+    <section id="driverView" class="view-section hidden">
+      <div class="driver-card">
+        <div class="driver-status-toggle">
           <div>
-            <div style="font-size:0.8rem; opacity:0.8;">إجمالي السلة:</div>
-            <div style="font-size:1.1rem; font-weight:bold;" id="cartTotalText">0 دج</div>
+            <h3>حالة السائق (أمين - SYM 125)</h3>
+            <p>عند التفعيل سيظهر موقعك المباشر للزبائن في خريطة سور الغزلان</p>
           </div>
-          <button style="width:auto; padding:8px 18px; background:var(--secondary);" onclick="openDriverModal()">
-            🛵 اختيار السائق وإتمام الطلب
-          </button>
+          <label class="switch">
+            <input type="checkbox" id="driverOnlineToggle" checked onchange="toggleDriverOnline(this.checked)">
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <div class="driver-gps-bar">
+          <span>📡 بث الإحداثيات: <strong id="driverCoordsLabel">36.1482° N, 3.6912° E</strong></span>
+          <button class="btn btn-sm btn-outline" onclick="simulateDriverMovement()">محاكاة حركة الدراجة 🛵</button>
         </div>
       </div>
 
-      <!-- SUB-VIEW 1C: LIVE ORDER TRACKING SCREEN -->
-      <div id="trackingView" style="display:none;">
-        <button class="btn-outline" style="margin-bottom:10px;" onclick="showShopsList()">⬅️ العودة للرئيسية</button>
+      <div class="section-title">
+        <h3>الطلبات الجاهزة للتوصيل في سور الغزلان</h3>
+      </div>
+      <div id="driverOrdersList" class="orders-list">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
 
-        <div class="card" style="border-right: 4px solid var(--secondary);">
-          <div class="card-title" style="margin-bottom:6px;">
-            <span id="trackOrderTitle">📍 تتبع الطلب المباشر</span>
-            <span class="status-badge" id="trackStatusBadge">جاري التجهيز</span>
-          </div>
-          <div style="font-size:0.85rem; color:var(--text-muted);" id="trackOrderSub">
-            السائق: <strong id="trackDriverName">أحمد السائق</strong> • <span id="trackDriverPhone"></span>
-          </div>
-
-          <!-- Live Progress Stepper -->
-          <div class="stepper">
-            <div class="step active" id="step1">
-              <div class="step-icon">1</div>
-              <span>تم الطلب</span>
-            </div>
-            <div class="step" id="step2">
-              <div class="step-icon">2</div>
-              <span>تأكيد المتجر</span>
-            </div>
-            <div class="step" id="step3">
-              <div class="step-icon">3</div>
-              <span>قيد التوصيل 🛵</span>
-            </div>
-            <div class="step" id="step4">
-              <div class="step-icon">4</div>
-              <span>تم التسليم ✅</span>
-            </div>
-          </div>
-
-          <!-- Live Map -->
-          <div style="position:relative;">
-            <div id="trackingMap"></div>
-            <div style="position:absolute; top:18px; left:18px; z-index:1000; background:rgba(255,255,255,0.9); padding:4px 8px; border-radius:6px; font-size:0.75rem; font-weight:bold; color:var(--secondary); box-shadow:0 1px 4px rgba(0,0,0,0.2);">
-              🔴 بث مباشر Live (WebSocket)
-            </div>
-          </div>
-
-          <div style="background:#f1f5f9; padding:10px; border-radius:8px; margin-top:10px; font-size:0.85rem;">
-            <div>📍 <strong>وجهة التوصيل:</strong> <span id="trackNeighborhood"></span> (<span id="trackDesc"></span>)</div>
-            <div>💵 <strong>المبلغ المطلوب عند الاستلام:</strong> <strong id="trackTotal"></strong></div>
-          </div>
+    <!-- VIEW 4: ADMIN VIEW -->
+    <section id="adminView" class="view-section hidden">
+      <div class="stats-row">
+        <div class="stat-card">
+          <span class="stat-val" id="adminTotalOrders">12</span>
+          <span class="stat-lbl">طلبات اليوم</span>
+        </div>
+        <div class="stat-card highlight">
+          <span class="stat-val" id="adminRevenue">14,200 دج</span>
+          <span class="stat-lbl">مجموع المبيعات</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-val" id="adminActiveDrivers">2</span>
+          <span class="stat-lbl">سائقين متصلين 🛵</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-val" id="adminActiveShops">4</span>
+          <span class="stat-lbl">متاجر مفتوحة</span>
         </div>
       </div>
 
-    </div>
-
-    <!-- VIEW 2: Driver Mode -->
-    <div id="driverView" style="display:none;">
-      <div class="card">
-        <div class="card-title">🛵 لوحة تحكم السائق (بث مباشر)</div>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
-          فعّل تواجدك كسائق لتظهر على خريطة سور الغزلان للزبائن ويتم تتبع موقعك لحظة بلحظة.
-        </p>
-        <label style="font-size:0.85rem;">رقم هاتف السائق:</label>
-        <input type="text" id="driverPhoneInput" value="0552222222">
-        <button class="btn-secondary" onclick="activateDriverLocation()">📍 تفعيل موقعي كـ سائق متاح الآن</button>
-        <div id="driverStatusMsg" style="margin-top:8px; font-size:0.85rem; color:var(--secondary);"></div>
-
-        <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:12px;">
-          <div style="font-weight:bold; font-size:0.9rem; margin-bottom:6px;">🎮 محاكاة حركة السائق نحو الزبون:</div>
-          <button style="background:#3b82f6;" onclick="stepSimulateMovement()">🛵 تحريك السائق خطوة نحو الزبون (Live Broadcast)</button>
-        </div>
+      <div class="geofence-card">
+        <h4>النطاق الجغرافي المعتمد (Geofence):</h4>
+        <p>📍 مركز البلدية: <strong>36.1480° N, 3.6900° E</strong> (نصف القطر: 8 كم - بلدية سور الغزلان)</p>
       </div>
 
-      <div class="card">
-        <div class="card-title">📋 الطلبات المسندة إليك</div>
-        <div id="driverOrdersContainer">جاري جلب الطلبات...</div>
+      <div class="section-title">
+        <h3>سجل كافة العمليات المباشرة</h3>
+      </div>
+      <div id="adminOrdersList" class="orders-list"></div>
+    </section>
+  </main>
+
+  <!-- FLOATING CART BAR -->
+  <div id="floatingCart" class="floating-cart hidden">
+    <div class="cart-info">
+      <span class="cart-count" id="cartCountBadge">0</span>
+      <div>
+        <div class="cart-total-text">المجموع: <strong id="cartTotalSum">0</strong> دج</div>
+        <div class="cart-delivery-note">+ 200 دج توصيل ثابت (دفع عند الاستلام)</div>
       </div>
     </div>
-
-    <!-- VIEW 3: Shop Owner Dashboard (Add Products) -->
-    <div id="shopOwnerView" style="display:none;">
-      <div class="card">
-        <div class="card-title">🏪 صفحة البائع / إضافة المنتجات</div>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
-          أضف وجباتك ومنتجاتك لتظهر مباشرة للزبائن في بلدية سور الغزلان.
-        </p>
-        
-        <label style="font-size:0.85rem;">اسم الوجبة / المنتج:</label>
-        <input type="text" id="newProdName" placeholder="مثال: بيتزا مارغريتا، طاكوس دجاج">
-
-        <label style="font-size:0.85rem;">الوصف والمكونات:</label>
-        <input type="text" id="newProdDesc" placeholder="مثال: جبن، صلصة خاصة، بطاطا مقلية">
-
-        <label style="font-size:0.85rem;">السعر بالدينار الجزائري (DA):</label>
-        <input type="number" id="newProdPrice" placeholder="500">
-
-        <button onclick="addNewProductByShop()">➕ إضافة المنتج لصفحتي</button>
-        <div id="shopAddMsg" style="margin-top:8px; font-size:0.85rem;"></div>
-      </div>
-    </div>
+    <button class="btn btn-primary" onclick="openDriverSelectionModal()">
+      إتمام الطلب واختيار السائق 🛵
+    </button>
   </div>
 
-  <!-- MODAL: Driver Selection on Map -->
-  <div class="modal-overlay" id="driverModal">
-    <div class="modal-sheet">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <h3 style="font-size:1.1rem; color:var(--primary);">🗺️ اختر السائق المتاح لتوصيل طلبك</h3>
-        <button class="btn-outline" style="width:32px; height:32px; border-radius:50%; padding:0;" onclick="closeDriverModal()">✕</button>
+  <!-- MODAL: DRIVER SELECTION & CHECKOUT -->
+  <div id="driverModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🛵 إتمام الطلب واختيار سائق التوصيل</h3>
+        <button class="close-btn" onclick="closeDriverSelectionModal()">✕</button>
       </div>
-      <p style="font-size:0.85rem; color:var(--text-muted);">
-        انقر على دراجة السائق 🛵 على خريطة سور الغزلان أو اختره من القائمة:
-      </p>
 
-      <div id="modalMap"></div>
-
-      <div style="font-size:0.9rem; font-weight:bold; margin: 10px 0 6px;">السائقون المتوفرون في بلدية سور الغزلان:</div>
-      <div id="modalDriversList">جاري البحث عن السائقين...</div>
-
-      <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:10px;">
-        <label style="font-size:0.85rem; font-weight:bold;">حي التوصيل (سور الغزلان):</label>
-        <select id="modalNeighborhood">
-          <option value="حي الوئام">حي الوئام</option>
-          <option value="حي 114 مسكن">حي 114 مسكن</option>
-          <option value="وسط المدينة">وسط المدينة</option>
-          <option value="حي ذراع البرج">حي ذراع البرج</option>
-          <option value="حي عين مريم">حي عين مريم</option>
-          <option value="حي باب الجزائر">حي باب الجزائر</option>
-          <option value="حي باب البوسعادة">حي باب البوسعادة</option>
-          <option value="المنطقة الصناعية">المنطقة الصناعية</option>
-          <option value="حي النصر">حي النصر</option>
-        </select>
-
-        <label style="font-size:0.85rem; font-weight:bold;">وصف العنوان الدقيق:</label>
-        <input type="text" id="modalDeliveryDesc" placeholder="مثال: قرب المدرسة، عمارة 4 الطابق الثاني">
-
-        <div style="background:#f1f5f9; padding:10px; border-radius:8px; margin-bottom:12px; font-size:0.9rem;">
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-            <span>مجموع المنتجات:</span>
-            <span id="modalItemsTotal">0 دج</span>
-          </div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-            <span>سعر التوصيل الثابت:</span>
-            <span>200 دج</span>
-          </div>
-          <div style="display:flex; justify-content:space-between; font-weight:bold; color:var(--primary); border-top:1px solid var(--border); padding-top:4px;">
-            <span>المبلغ الإجمالي (دفع عند الاستلام):</span>
-            <span id="modalFinalTotal">200 دج</span>
-          </div>
+      <div class="modal-body">
+        <!-- Delivery Address Details -->
+        <div class="form-group">
+          <label>اسم الزبون الكريم:</label>
+          <input type="text" id="custNameInput" class="form-control" value="محمد - زبون سور الغزلان" placeholder="الاسم الكامل">
         </div>
 
-        <button onclick="confirmOrderWithDriver()" style="background:var(--secondary); padding:12px;">
-          ✅ تأكيد الطلب مع السائق المختار والدفع عند الاستلام
+        <div class="form-group">
+          <label>رقم الهاتف الجزائري (05 / 06 / 07):</label>
+          <input type="tel" id="custPhoneInput" class="form-control" value="0550123456" placeholder="05XXXXXXXX">
+        </div>
+
+        <div class="form-group">
+          <label>الحي في سور الغزلان:</label>
+          <select id="custNeighborhoodSelect" class="form-control">
+            <option value="وسط المدينة">وسط المدينة (Centre Ville)</option>
+            <option value="حي الوئام">حي الوئام (Hai El Wiame)</option>
+            <option value="حي 114 مسكن">حي 114 مسكن (114 Logements)</option>
+            <option value="حي ذراع البرج">حي ذراع البرج (Draa El Bordj)</option>
+            <option value="حي عين مريم">حي عين مريم (Ain Meriem)</option>
+            <option value="حي باب الجزائر">حي باب الجزائر (Bab El Djazair)</option>
+            <option value="حي باب البوسعادة">حي باب البوسعادة (Bab Boussaada)</option>
+            <option value="المنطقة الصناعية">المنطقة الصناعية (Zone Industrielle)</option>
+            <option value="حي النصر">حي النصر (Hai En-Nasr)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>وصف دقيق للعنوان (معلم قريب أو رقم العمارة):</label>
+          <input type="text" id="custAddressInput" class="form-control" value="مقابل صيدلية الأمل، العمارة ب، الطابق 2" placeholder="وصف العنوان">
+        </div>
+
+        <!-- OpenStreetMap Drivers Map -->
+        <label class="map-label">📍 خريطة دراجات السائقين المتصلين في سور الغزلان:</label>
+        <div id="driversMap" class="drivers-map-container"></div>
+
+        <!-- Driver List Selector -->
+        <label class="drivers-list-label">اختر سائقك المفضل:</label>
+        <div id="driversListContainer" class="drivers-radio-group">
+          <!-- Populated dynamically -->
+        </div>
+
+        <div class="order-summary-box">
+          <div class="summary-line"><span>ثمن الوجبات:</span><span id="summarySubtotal">0 دج</span></div>
+          <div class="summary-line"><span>سعر التوصيل (ثابت):</span><span>200 دج</span></div>
+          <div class="summary-line total"><span>المجموع الإجمالي (عند الاستلام):</span><span id="summaryTotal">200 دج</span></div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-primary btn-block" onclick="confirmOrder()">
+          تأكيد الطلب الآن (الدفع عند الاستلام COD) ✅
         </button>
       </div>
     </div>
   </div>
 
-  <!-- Bottom Navigation -->
-  <nav class="bottom-bar">
-    <button class="nav-btn active" id="btnNavCustomer" onclick="switchMainTab('customer')">
-      <span class="nav-icon">🛒</span>
-      <span>المتاجر والطلب</span>
-    </button>
-    <button class="nav-btn" id="btnNavShop" onclick="switchMainTab('shop')">
-      <span class="nav-icon">🏪</span>
-      <span>لوحة البائع</span>
-    </button>
-    <button class="nav-btn" id="btnNavDriver" onclick="switchMainTab('driver')">
-      <span class="nav-icon">🛵</span>
-      <span>وضع السائق</span>
-    </button>
-  </nav>
+  <!-- MODAL: LIVE REAL-TIME TRACKING SCREEN -->
+  <div id="trackingModal" class="modal-backdrop hidden">
+    <div class="modal-content tracking-modal-content">
+      <div class="modal-header tracking-header">
+        <div>
+          <h3>تتبع الطلب المباشر 🛵</h3>
+          <span class="order-id-label" id="trackOrderNum">SOUR-8921</span>
+        </div>
+        <button class="close-btn" onclick="closeTrackingModal()">✕</button>
+      </div>
 
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <script>
-    const API = window.location.origin + '/api';
-    const WS_URL = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws';
-    const SOUR_LAT = 36.1480;
-    const SOUR_LNG = 3.6900;
-
-    let customerToken = null;
-    let driverToken = null;
-    let shopToken = null;
-
-    let allShops = [];
-    let currentShop = null;
-    let currentProducts = [];
-    let cart = {}; // productId -> qty
-    let availableDrivers = [];
-    let selectedDriverId = null;
-
-    let modalMap = null;
-    let modalMarkersLayer = null;
-
-    // Tracking Map variables
-    let trackingMap = null;
-    let trackingDriverMarker = null;
-    let trackingDestMarker = null;
-    let trackingRouteLine = null;
-    let activeTrackedOrder = null;
-    let currentDriverLat = SOUR_LAT;
-    let currentDriverLng = SOUR_LNG;
-
-    // WebSocket connection
-    let ws = null;
-
-    function connectWebSocket() {
-      try {
-        ws = new WebSocket(WS_URL);
-        ws.onopen = () => {
-          console.log('[WS] Connected to live server');
-        };
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            console.log('[WS] Received:', data);
-
-            // Live Driver Location Update
-            if (data.type === 'DRIVER_LOCATION') {
-              if (activeTrackedOrder && activeTrackedOrder.driver_id == data.driverId) {
-                updateLiveDriverPosition(data.location.lat, data.location.lng);
-              }
-            }
-
-            // Live Order Status Update
-            if (data.type === 'ORDER_UPDATE') {
-              if (activeTrackedOrder && activeTrackedOrder.id == data.order.id) {
-                activeTrackedOrder.status = data.order.status;
-                updateTrackingStepper(data.order.status);
-              }
-              loadCustomerOrders();
-              if (driverToken) loadDriverOrders();
-            }
-          } catch (e) {
-            console.error('WS parse error', e);
-          }
-        };
-        ws.onclose = () => {
-          setTimeout(connectWebSocket, 3000); // Auto reconnect
-        };
-      } catch (err) {
-        console.error('WS connection error', err);
-      }
-    }
-
-    // Bootstrap Customer Authentication
-    async function initAuth() {
-      connectWebSocket();
-      try {
-        const otpRes = await fetch(API + '/auth/send-otp', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ phone: '0559998888' })
-        }).then(r => r.json());
-
-        const verifyRes = await fetch(API + '/auth/verify-otp', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            phone: '0559998888',
-            code: otpRes.mock_code || '123456',
-            full_name: 'زبون تجريبي',
-            role: 'CUSTOMER'
-          })
-        }).then(r => r.json());
-
-        customerToken = verifyRes.token;
-        loadShops();
-        loadCustomerOrders();
-      } catch (e) {
-        console.error('Auth error', e);
-      }
-    }
-
-    // Load Shops List
-    async function loadShops() {
-      try {
-        const res = await fetch(API + '/shops').then(r => r.json());
-        allShops = res.shops || [];
-        const container = document.getElementById('shopsContainer');
-        if (allShops.length === 0) {
-          container.innerHTML = '<p style="color:var(--text-muted);">لا توجد متاجر مسجلة حالياً.</p>';
-          return;
-        }
-
-        container.innerHTML = '';
-        allShops.forEach(s => {
-          const item = document.createElement('div');
-          item.className = 'shop-item';
-          item.onclick = () => openShopPage(s);
-          item.innerHTML = `
-            <div class="shop-info">
-              <h3>🏪 ${s.name}</h3>
-              <p>📍 ${s.address_description || 'سور الغزلان'} • (${s.category || 'عام'})</p>
-            </div>
-            <button style="width:auto; padding:6px 12px; font-size:0.85rem;">دخول المتجر ⬅️</button>
-          `;
-          container.appendChild(item);
-        });
-      } catch (err) {
-        console.error('Error loading shops', err);
-      }
-    }
-
-    // Open Shop Page
-    async function openShopPage(shop) {
-      currentShop = shop;
-      cart = {};
-      document.getElementById('currentShopName').textContent = shop.name;
-      document.getElementById('currentShopDesc').textContent = `📍 ${shop.address_description || 'سور الغزلان'} (${shop.category || 'متجر'})`;
-
-      document.getElementById('shopsListView').style.display = 'none';
-      document.getElementById('trackingView').style.display = 'none';
-      document.getElementById('singleShopView').style.display = 'block';
-
-      const prodContainer = document.getElementById('currentShopProducts');
-      prodContainer.innerHTML = 'جاري جلب المنتجات...';
-
-      try {
-        const res = await fetch(API + `/shops/${shop.id}/products`).then(r => r.json());
-        currentProducts = res.products || [];
-
-        if (currentProducts.length === 0) {
-          prodContainer.innerHTML = '<p style="color:var(--text-muted); padding:10px;">لم يقم المتجر بإضافة منتجات بعد.</p>';
-          return;
-        }
-
-        prodContainer.innerHTML = '';
-        currentProducts.forEach(p => {
-          const card = document.createElement('div');
-          card.className = 'product-card';
-          card.innerHTML = `
-            <div>
-              <div class="product-title">${p.name}</div>
-              <div class="product-desc">${p.description || ''}</div>
-              <div class="product-price">${p.price_da} دج</div>
-            </div>
-            <div class="qty-control">
-              <button class="qty-btn btn-outline" onclick="changeQty(${p.id}, -1)">-</button>
-              <span id="qty_${p.id}" style="font-weight:bold; min-width:20px; text-align:center;">0</span>
-              <button class="qty-btn" onclick="changeQty(${p.id}, 1)">+</button>
-            </div>
-          `;
-          prodContainer.appendChild(card);
-        });
-
-        updateCartBar();
-      } catch (e) {
-        prodContainer.innerHTML = 'خطأ في تحميل المنتجات';
-      }
-    }
-
-    function showShopsList() {
-      document.getElementById('singleShopView').style.display = 'none';
-      document.getElementById('trackingView').style.display = 'none';
-      document.getElementById('shopsListView').style.display = 'block';
-    }
-
-    // Cart Management
-    function changeQty(productId, delta) {
-      const current = cart[productId] || 0;
-      const updated = Math.max(0, current + delta);
-      if (updated === 0) {
-        delete cart[productId];
-      } else {
-        cart[productId] = updated;
-      }
-      const el = document.getElementById(`qty_${productId}`);
-      if (el) el.textContent = updated;
-      updateCartBar();
-    }
-
-    function calculateCartTotal() {
-      let sum = 0;
-      for (const [prodId, qty] of Object.entries(cart)) {
-        const prod = currentProducts.find(p => p.id == prodId);
-        if (prod) {
-          sum += (parseFloat(prod.price_da) * qty);
-        }
-      }
-      return sum;
-    }
-
-    function updateCartBar() {
-      const total = calculateCartTotal();
-      const cartBar = document.getElementById('cartBar');
-      if (total > 0) {
-        cartBar.style.display = 'flex';
-        document.getElementById('cartTotalText').textContent = total + ' دج';
-      } else {
-        cartBar.style.display = 'none';
-      }
-    }
-
-    // Modal Driver Selection
-    async function openDriverModal() {
-      const total = calculateCartTotal();
-      if (total <= 0) return alert('الرجاء اختيار منتج واحد على الأقل');
-
-      document.getElementById('modalItemsTotal').textContent = total + ' دج';
-      document.getElementById('modalFinalTotal').textContent = (total + 200) + ' دج';
-      document.getElementById('driverModal').style.display = 'flex';
-
-      initModalMap();
-      loadModalDrivers();
-    }
-
-    function closeDriverModal() {
-      document.getElementById('driverModal').style.display = 'none';
-    }
-
-    function initModalMap() {
-      if (modalMap) {
-        setTimeout(() => modalMap.invalidateSize(), 150);
-        return;
-      }
-
-      modalMap = L.map('modalMap').setView([SOUR_LAT, SOUR_LNG], 14);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap'
-      }).addTo(modalMap);
-
-      L.circle([SOUR_LAT, SOUR_LNG], {
-        color: '#0284c7',
-        fillColor: '#38bdf8',
-        fillOpacity: 0.15,
-        radius: 3500
-      }).addTo(modalMap);
-
-      modalMarkersLayer = L.layerGroup().addTo(modalMap);
-      setTimeout(() => modalMap.invalidateSize(), 200);
-    }
-
-    async function loadModalDrivers() {
-      try {
-        const res = await fetch(API + '/drivers/available', {
-          headers: { 'Authorization': 'Bearer ' + customerToken }
-        }).then(r => r.json());
-
-        availableDrivers = res.drivers || [];
-        renderModalDrivers();
-      } catch (err) {
-        console.error('Error fetching drivers', err);
-      }
-    }
-
-    function renderModalDrivers() {
-      modalMarkersLayer.clearLayers();
-      const listEl = document.getElementById('modalDriversList');
-
-      if (availableDrivers.length === 0) {
-        listEl.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">لا يوجد سائقون متصلون حالياً في سور الغزلان. يمكنك التبديل إلى "وضع السائق" بالأسفل وتفعيل سائق تجريبي.</p>';
-        return;
-      }
-
-      if (!selectedDriverId && availableDrivers.length > 0) {
-        selectedDriverId = availableDrivers[0].id;
-      }
-
-      listEl.innerHTML = '';
-      availableDrivers.forEach(d => {
-        const lat = parseFloat(d.lat) || SOUR_LAT;
-        const lng = parseFloat(d.lng) || SOUR_LNG;
-
-        const icon = L.divIcon({
-          className: 'custom-driver-icon',
-          html: '<div style="background:#0284c7; color:white; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:16px; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.3);">🛵</div>',
-          iconSize: [32, 32],
-          iconAnchor: [16, 16]
-        });
-
-        const marker = L.marker([lat, lng], { icon }).addTo(modalMarkersLayer);
-        marker.bindPopup(`<strong>${d.full_name}</strong><br>📞 ${d.phone}`);
-        marker.on('click', () => pickDriver(d.id));
-
-        const choice = document.createElement('div');
-        choice.className = 'driver-choice' + (selectedDriverId === d.id ? ' active' : '');
-        choice.onclick = () => pickDriver(d.id);
-        choice.innerHTML = `
-          <div>
-            <strong>🛵 ${d.full_name}</strong>
-            <div style="font-size:0.8rem; color:var(--text-muted);">📞 ${d.phone} • متوفر للتوصيل</div>
+      <div class="modal-body">
+        <!-- Stepper Progress Bar -->
+        <div class="stepper-container">
+          <div class="step-item" id="step1">
+            <div class="step-circle">1</div>
+            <span>تم الطلب</span>
           </div>
-          <span style="font-weight:bold; color:var(--primary); font-size:0.85rem;">${selectedDriverId === d.id ? '✔ تم الاختيار' : 'اختيار'}</span>
-        `;
-        listEl.appendChild(choice);
-      });
-    }
+          <div class="step-line" id="line1"></div>
+          <div class="step-item" id="step2">
+            <div class="step-circle">2</div>
+            <span>تحضير الوجبة</span>
+          </div>
+          <div class="step-line" id="line2"></div>
+          <div class="step-item" id="step3">
+            <div class="step-circle">3</div>
+            <span>قيد التوصيل 🛵</span>
+          </div>
+          <div class="step-line" id="line3"></div>
+          <div class="step-item" id="step4">
+            <div class="step-circle">4</div>
+            <span>تم التسليم ✅</span>
+          </div>
+        </div>
 
-    function pickDriver(id) {
-      selectedDriverId = id;
-      renderModalDrivers();
-    }
+        <!-- Live Real-Time OpenStreetMap Tracking Canvas -->
+        <div class="map-tracking-wrapper">
+          <div id="liveTrackingMap" class="live-map"></div>
+          <div class="live-badge-overlay">
+            <span class="pulse-dot"></span> بث موقع الدراجة المباشر (WebSocket Live)
+          </div>
+        </div>
 
-    // Submit Order & Automatically Open Live Tracking
-    async function confirmOrderWithDriver() {
-      if (!selectedDriverId) return alert('الرجاء اختيار سائق من القائمة أو الخريطة');
-
-      const items = [];
-      for (const [prodId, qty] of Object.entries(cart)) {
-        if (qty > 0) {
-          items.push({ product_id: parseInt(prodId), quantity: qty });
-        }
-      }
-
-      const neighborhood = document.getElementById('modalNeighborhood').value;
-      const desc = document.getElementById('modalDeliveryDesc').value;
-
-      try {
-        const res = await fetch(API + '/orders', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + customerToken
-          },
-          body: JSON.stringify({
-            shop_id: currentShop.id,
-            driver_id: selectedDriverId,
-            items,
-            delivery_neighborhood: neighborhood,
-            delivery_description: desc
-          })
-        }).then(r => r.json());
-
-        if (res.success) {
-          closeDriverModal();
-          alert(`🎉 تم إرسال طلبك بنجاح برقم #${res.order.id} مع السائق المختار! سيتم نقلك لشاشة التتبع المباشر.`);
-          openTrackingScreen(res.order);
-          loadCustomerOrders();
-        } else {
-          alert('خطأ: ' + (res.error || 'فشل إرسال الطلب'));
-        }
-      } catch (err) {
-        alert('حدث خطأ في الاتصال بالخادم');
-      }
-    }
-
-    // ==========================================
-    // 🗺️ LIVE ORDER & DRIVER TRACKING SCREEN
-    // ==========================================
-    function openTrackingScreen(order) {
-      activeTrackedOrder = order;
-      document.getElementById('shopsListView').style.display = 'none';
-      document.getElementById('singleShopView').style.display = 'none';
-      document.getElementById('trackingView').style.display = 'block';
-
-      document.getElementById('trackOrderTitle').textContent = `📍 تتبع مباشر للطلب #${order.id}`;
-      document.getElementById('trackDriverName').textContent = order.driver_name || 'أحمد السائق';
-      document.getElementById('trackDriverPhone').textContent = order.driver_phone ? `📞 ${order.driver_phone}` : '';
-      document.getElementById('trackNeighborhood').textContent = order.delivery_neighborhood;
-      document.getElementById('trackDesc').textContent = order.delivery_description || 'بدون وصف';
-      document.getElementById('trackTotal').textContent = `${order.total_amount_da} دج`;
-
-      updateTrackingStepper(order.status);
-      initTrackingMap(order);
-    }
-
-    function updateTrackingStepper(status) {
-      const badge = document.getElementById('trackStatusBadge');
-      badge.className = 'status-badge status-' + status;
-      badge.textContent = translateStatus(status);
-
-      const s1 = document.getElementById('step1');
-      const s2 = document.getElementById('step2');
-      const s3 = document.getElementById('step3');
-      const s4 = document.getElementById('step4');
-
-      [s1, s2, s3, s4].forEach(s => { s.className = 'step'; });
-
-      s1.classList.add('done');
-      if (status === 'NEW') {
-        s1.classList.add('active');
-      } else if (status === 'CONFIRMED') {
-        s2.classList.add('done', 'active');
-      } else if (status === 'OUT_FOR_DELIVERY') {
-        s2.classList.add('done');
-        s3.classList.add('done', 'active');
-      } else if (status === 'DELIVERED') {
-        s2.classList.add('done');
-        s3.classList.add('done');
-        s4.classList.add('done', 'active');
-      }
-    }
-
-    function initTrackingMap(order) {
-      const destLat = parseFloat(order.delivery_lat) || (SOUR_LAT + 0.005);
-      const destLng = parseFloat(order.delivery_lng) || (SOUR_LNG + 0.005);
-
-      if (!trackingMap) {
-        trackingMap = L.map('trackingMap').setView([SOUR_LAT, SOUR_LNG], 14);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '© OpenStreetMap'
-        }).addTo(trackingMap);
-      }
-
-      setTimeout(() => trackingMap.invalidateSize(), 200);
-
-      // Customer Destination Marker
-      const homeIcon = L.divIcon({
-        html: '<div style="background:#ef4444; color:white; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:16px; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.3);">🏠</div>',
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
-      });
-
-      if (trackingDestMarker) trackingMap.removeLayer(trackingDestMarker);
-      trackingDestMarker = L.marker([destLat, destLng], { icon: homeIcon }).addTo(trackingMap);
-      trackingDestMarker.bindPopup(`<b>مكان التوصيل</b><br>${order.delivery_neighborhood}`);
-
-      // Driver Live Marker
-      const motoIcon = L.divIcon({
-        html: '<div id="liveDriverMarker" style="background:#0284c7; color:white; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-size:18px; border:2px solid white; box-shadow:0 3px 8px rgba(0,0,0,0.4); transition: transform 0.4s ease-out;">🛵</div>',
-        iconSize: [36, 36],
-        iconAnchor: [18, 18]
-      });
-
-      if (trackingDriverMarker) trackingMap.removeLayer(trackingDriverMarker);
-      trackingDriverMarker = L.marker([currentDriverLat, currentDriverLng], { icon: motoIcon }).addTo(trackingMap);
-      trackingDriverMarker.bindPopup(`<b>السائق في طريقه إليك</b><br>🛵 ${order.driver_name || 'أحمد'}`);
-
-      // Route Line
-      if (trackingRouteLine) trackingMap.removeLayer(trackingRouteLine);
-      trackingRouteLine = L.polyline([
-        [currentDriverLat, currentDriverLng],
-        [destLat, destLng]
-      ], { color: '#0284c7', weight: 4, dashArray: '6, 8', opacity: 0.8 }).addTo(trackingMap);
-
-      const bounds = L.latLngBounds([
-        [currentDriverLat, currentDriverLng],
-        [destLat, destLng]
-      ]);
-      trackingMap.fitBounds(bounds, { padding: [40, 40] });
-    }
-
-    // Move Driver Live on Customer Map
-    function updateLiveDriverPosition(newLat, newLng) {
-      currentDriverLat = parseFloat(newLat);
-      currentDriverLng = parseFloat(newLng);
-
-      if (trackingDriverMarker && trackingMap) {
-        trackingDriverMarker.setLatLng([currentDriverLat, currentDriverLng]);
-
-        if (trackingDestMarker && trackingRouteLine) {
-          const destLatLng = trackingDestMarker.getLatLng();
-          trackingRouteLine.setLatLngs([
-            [currentDriverLat, currentDriverLng],
-            [destLatLng.lat, destLatLng.lng]
-          ]);
-        }
-      }
-    }
-
-    // Customer Orders History
-    async function loadCustomerOrders() {
-      if (!customerToken) return;
-      try {
-        const res = await fetch(API + '/orders', {
-          headers: { 'Authorization': 'Bearer ' + customerToken }
-        }).then(r => r.json());
-
-        const cont = document.getElementById('ordersContainer');
-        if (!res.orders || res.orders.length === 0) {
-          cont.innerHTML = '<span style="color:var(--text-muted); font-size:0.85rem;">لا توجد طلبات سابقة.</span>';
-          return;
-        }
-
-        cont.innerHTML = '';
-        res.orders.forEach(o => {
-          const card = document.createElement('div');
-          card.style = 'background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:8px; margin-bottom:8px;';
-          card.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-              <strong>طلب #${o.id} - ${o.shop_name || 'متجر'}</strong>
-              <span class="status-badge status-${o.status}">${translateStatus(o.status)}</span>
+        <!-- Driver & Order Info Card -->
+        <div class="tracking-info-card">
+          <div class="driver-profile-row">
+            <div class="driver-avatar">🛵</div>
+            <div class="driver-details">
+              <h4 id="trackDriverName">أمين التوصيل (دراجة SYM)</h4>
+              <p id="trackDriverPhone">هاتف: +213553333333</p>
+              <div class="eta-tag">الوقت المقدر للوصول: <strong id="trackEta">8 دقائق</strong></div>
             </div>
-            <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:8px;">
-              🛵 السائق: <strong>${o.driver_name || 'لم يُحدد'}</strong> (${o.driver_phone || ''})<br>
-              📍 العنوان: ${o.delivery_neighborhood} (${o.delivery_description || ''})<br>
-              💵 الإجمالي: <strong>${o.total_amount_da} دج</strong> (الدفع عند الاستلام)
-            </div>
-            <button class="btn-outline" style="padding:6px 12px; font-size:0.85rem;" onclick='openTrackingScreen(${JSON.stringify(o).replace(/'/g, "&apos;")})'>
-              📍 تتبع موقع السائق Live على الخريطة
-            </button>
-          `;
-          cont.appendChild(card);
-        });
-      } catch (e) {}
-    }
+            <a id="trackCallBtn" href="tel:+213553333333" class="call-btn">📞 اتصال</a>
+          </div>
 
-    function translateStatus(s) {
-      const map = {
-        'NEW': 'جديد 📝',
-        'CONFIRMED': 'تم التأكيد 🍳',
-        'OUT_FOR_DELIVERY': 'قيد التوصيل 🛵',
-        'DELIVERED': 'تم التوصيل بنجاح ✅',
-        'CANCELLED': 'ملغى ❌'
-      };
-      return map[s] || s;
-    }
+          <div class="payment-cod-notice">
+            <span>المبلغ المطلوب تسليمه للسائق نقداً:</span>
+            <strong id="trackTotalCod">1,150 دج</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    // Driver Mode Actions
-    async function activateDriverLocation() {
-      const phone = document.getElementById('driverPhoneInput').value;
-      try {
-        const otpRes = await fetch(API + '/auth/send-otp', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ phone })
-        }).then(r => r.json());
-
-        const authRes = await fetch(API + '/auth/verify-otp', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            phone,
-            code: otpRes.mock_code || '123456',
-            full_name: 'أحمد السائق',
-            role: 'DRIVER'
-          })
-        }).then(r => r.json());
-
-        driverToken = authRes.token;
-
-        await fetch(API + '/drivers/location', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + driverToken
-          },
-          body: JSON.stringify({ lat: SOUR_LAT, lng: SOUR_LNG, heading: 90 })
-        });
-
-        document.getElementById('driverStatusMsg').textContent = `✅ أنت متصل الآن كسائق متاح في سور الغزلان (${SOUR_LAT.toFixed(4)}, ${SOUR_LNG.toFixed(4)})`;
-        loadDriverOrders();
-      } catch (e) {
-        alert('خطأ في تفعيل السائق');
-      }
-    }
-
-    // Driver Simulator: Moves the driver closer step by step
-    let simSteps = 0;
-    async function stepSimulateMovement() {
-      if (!driverToken) {
-        await activateDriverLocation();
-      }
-
-      simSteps += 1;
-      // Move driver along town towards neighborhood
-      currentDriverLat += 0.0012;
-      currentDriverLng += 0.0010;
-
-      try {
-        await fetch(API + '/drivers/location', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + driverToken
-          },
-          body: JSON.stringify({ lat: currentDriverLat, lng: currentDriverLng, heading: 45 })
-        });
-
-        document.getElementById('driverStatusMsg').textContent = `🛵 تحرك السائق (خطوة ${simSteps}): تم بث الإحداثيات (${currentDriverLat.toFixed(4)}, ${currentDriverLng.toFixed(4)}) مباشرة للزبون!`;
-      } catch (e) {
-        console.error('Sim error', e);
-      }
-    }
-
-    async function loadDriverOrders() {
-      if (!driverToken) return;
-      try {
-        const res = await fetch(API + '/orders', {
-          headers: { 'Authorization': 'Bearer ' + driverToken }
-        }).then(r => r.json());
-
-        const cont = document.getElementById('driverOrdersContainer');
-        if (!res.orders || res.orders.length === 0) {
-          cont.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">لا توجد طلبات مسندة إليك حالياً.</p>';
-          return;
-        }
-
-        cont.innerHTML = '';
-        res.orders.forEach(o => {
-          const item = document.createElement('div');
-          item.style = 'background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:8px; margin-bottom:8px;';
-          item.innerHTML = `
-            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-              <strong>طلب #${o.id} - ${o.customer_name || 'الزبون'}</strong>
-              <span class="status-badge status-${o.status}">${translateStatus(o.status)}</span>
-            </div>
-            <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:8px;">
-              📞 هاتف الزبون: ${o.customer_phone || ''}<br>
-              📍 العنوان: ${o.delivery_neighborhood} (${o.delivery_description || ''})<br>
-              💵 المبلغ المطلوب تحصيله نقداً: <strong>${o.total_amount_da} دج</strong>
-            </div>
-            <div style="display:flex; gap:6px;">
-              ${o.status === 'CONFIRMED' ? `<button onclick="updateDriverOrderStatus(${o.id}, 'OUT_FOR_DELIVERY')">🛵 انطلاق للتوصيل</button>` : ''}
-              ${o.status === 'OUT_FOR_DELIVERY' ? `<button class="btn-secondary" onclick="updateDriverOrderStatus(${o.id}, 'DELIVERED')">✅ تم التسليم واستلام المبلغ</button>` : ''}
-            </div>
-          `;
-          cont.appendChild(item);
-        });
-      } catch (e) {}
-    }
-
-    async function updateDriverOrderStatus(orderId, status) {
-      if (!driverToken) return;
-      try {
-        await fetch(API + `/orders/${orderId}/status`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + driverToken
-          },
-          body: JSON.stringify({ status })
-        });
-        loadDriverOrders();
-        loadCustomerOrders();
-      } catch (e) {}
-    }
-
-    // Shop Owner: Add New Product
-    async function addNewProductByShop() {
-      const name = document.getElementById('newProdName').value;
-      const desc = document.getElementById('newProdDesc').value;
-      const price = document.getElementById('newProdPrice').value;
-
-      if (!name || !price) return alert('الرجاء إدخال اسم المنتج والسعر');
-
-      try {
-        if (!shopToken) {
-          const otpRes = await fetch(API + '/auth/send-otp', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ phone: '0551111111' })
-          }).then(r => r.json());
-
-          const authRes = await fetch(API + '/auth/verify-otp', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-              phone: '0551111111',
-              code: otpRes.mock_code || '123456',
-              full_name: 'صاحب مطعم الوئام',
-              role: 'SHOP'
-            })
-          }).then(r => r.json());
-          shopToken = authRes.token;
-        }
-
-        const res = await fetch(API + '/shops/1/products', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + shopToken
-          },
-          body: JSON.stringify({
-            name,
-            description: desc,
-            price_da: parseFloat(price)
-          })
-        }).then(r => r.json());
-
-        if (res.success) {
-          document.getElementById('shopAddMsg').innerHTML = `<span style="color:var(--secondary); font-weight:bold;">✅ تمت إضافة المنتج (${name} - ${price} دج) بنجاح لصفحتك!</span>`;
-          document.getElementById('newProdName').value = '';
-          document.getElementById('newProdDesc').value = '';
-          document.getElementById('newProdPrice').value = '';
-          loadShops();
-        } else {
-          alert('خطأ: ' + (res.error || 'تعذر إضافة المنتج'));
-        }
-      } catch (e) {
-        alert('خطأ أثناء إضافة المنتج');
-      }
-    }
-
-    // Main Tab Switcher
-    function switchMainTab(tab) {
-      document.getElementById('customerView').style.display = tab === 'customer' ? 'block' : 'none';
-      document.getElementById('shopOwnerView').style.display = tab === 'shop' ? 'block' : 'none';
-      document.getElementById('driverView').style.display = tab === 'driver' ? 'block' : 'none';
-
-      document.getElementById('btnNavCustomer').className = 'nav-btn' + (tab === 'customer' ? ' active' : '');
-      document.getElementById('btnNavShop').className = 'nav-btn' + (tab === 'shop' ? ' active' : '');
-      document.getElementById('btnNavDriver').className = 'nav-btn' + (tab === 'driver' ? ' active' : '');
-
-      if (tab === 'driver') loadDriverOrders();
-    }
-
-    // PWA Install Handling
-    let deferredPrompt = null;
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      const btn = document.getElementById('btnInstallPwa');
-      if (btn) btn.style.display = 'inline-flex';
-    });
-
-    function triggerPwaInstall() {
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then((choiceResult) => {
-          if (choiceResult.outcome === 'accepted') {
-            document.getElementById('btnInstallPwa').style.display = 'none';
-          }
-          deferredPrompt = null;
-        });
-      }
-    }
-
-    // Register Service Worker
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/app/sw.js').catch(err => console.log('SW fail', err));
-      });
-    }
-
-    window.addEventListener('DOMContentLoaded', () => {
-      initAuth();
-    });
-  </script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
