@@ -211,6 +211,12 @@ fun LoginScreen(
 
     var showForgotPasswordDialog by remember { mutableStateOf(false) }
 
+    var isOtpMode by remember { mutableStateOf(false) }
+    var otpCode by remember { mutableStateOf("") }
+    var isOtpSent by remember { mutableStateOf(false) }
+    var otpMessage by remember { mutableStateOf<String?>(null) }
+    var otpError by remember { mutableStateOf<String?>(null) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -236,7 +242,52 @@ fun LoginScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Tab switcher: Password vs OTP
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (!isOtpMode) MaterialTheme.colorScheme.primary else Color.Transparent,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { isOtpMode = false; generalError = null }
+            ) {
+                Text(
+                    text = "كلمة السر",
+                    fontSize = 12.sp,
+                    fontWeight = if (!isOtpMode) FontWeight.Bold else FontWeight.Normal,
+                    color = if (!isOtpMode) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (isOtpMode) MaterialTheme.colorScheme.primary else Color.Transparent,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { isOtpMode = true; generalError = null }
+            ) {
+                Text(
+                    text = "رمز التحقق (OTP)",
+                    fontSize = 12.sp,
+                    fontWeight = if (isOtpMode) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isOtpMode) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(18.dp))
 
         // Phone Input
         AppTextField(
@@ -254,34 +305,90 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Password Input
-        AppTextField(
-            value = password,
-            onValueChange = {
-                password = it
-                passwordError = null
-                generalError = null
-            },
-            label = "كلمة السر",
-            leadingIcon = Icons.Default.Lock,
-            isPassword = true,
-            isPasswordVisible = isPasswordVisible,
-            onTogglePasswordVisibility = { isPasswordVisible = !isPasswordVisible },
-            errorMessage = passwordError
-        )
+        if (!isOtpMode) {
+            // Password Input
+            AppTextField(
+                value = password,
+                onValueChange = {
+                    password = it
+                    passwordError = null
+                    generalError = null
+                },
+                label = "كلمة السر",
+                leadingIcon = Icons.Default.Lock,
+                isPassword = true,
+                isPasswordVisible = isPasswordVisible,
+                onTogglePasswordVisibility = { isPasswordVisible = !isPasswordVisible },
+                errorMessage = passwordError
+            )
 
-        // Forgot Password Link
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.CenterEnd
-        ) {
-            TextButton(onClick = { showForgotPasswordDialog = true }) {
-                Text(
-                    text = "نسيت كلمة السر؟",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
+            // Forgot Password Link
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                TextButton(onClick = { showForgotPasswordDialog = true }) {
+                    Text(
+                        text = "نسيت كلمة السر؟",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        } else {
+            // OTP Mode
+            if (isOtpSent) {
+                AppTextField(
+                    value = otpCode,
+                    onValueChange = {
+                        otpCode = it
+                        otpError = null
+                        generalError = null
+                    },
+                    label = "رمز التحقق المكون من 4 أرقام",
+                    leadingIcon = Icons.Default.Lock,
+                    keyboardType = KeyboardType.Number,
+                    errorMessage = otpError
                 )
+
+                if (otpMessage != null) {
+                    Text(
+                        text = otpMessage ?: "",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(start = 8.dp, top = 4.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            } else {
+                OutlinedButton(
+                    onClick = {
+                        if (!AuthRepository.isValidAlgerianPhone(phone)) {
+                            phoneError = "يرجى إدخال رقم هاتف جزائري صحيح (مثل: 0550123456)"
+                        } else {
+                            isLoading = true
+                            coroutineScope.launch {
+                                val res = authRepository.requestOtp(phone)
+                                isLoading = false
+                                res.fold(
+                                    onSuccess = { code ->
+                                        isOtpSent = true
+                                        otpCode = code
+                                        otpMessage = "تم إرسال الرمز بنجاح. رمز الاختبار: $code"
+                                    },
+                                    onFailure = {
+                                        generalError = "تعذر إرسال رمز التحقق"
+                                    }
+                                )
+                            }
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                ) {
+                    Text("إرسال رمز التحقق عبر الرسائل القصيرة", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 
@@ -305,7 +412,7 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         AppButton(
-            text = "دخول",
+            text = if (isOtpMode) "تأكيد الدخول بالرمز" else "دخول",
             isLoading = isLoading,
             onClick = {
                 var hasError = false
@@ -313,25 +420,50 @@ fun LoginScreen(
                     phoneError = "يرجى إدخال رقم هاتف جزائري صحيح (مثل: 0550123456)"
                     hasError = true
                 }
-                if (!AuthRepository.isValidPassword(password)) {
-                    passwordError = "كلمة السر يجب أن تحتوي على 6 أحرف على الأقل"
-                    hasError = true
-                }
 
-                if (!hasError) {
-                    isLoading = true
-                    generalError = null
-                    coroutineScope.launch {
-                        val result = authRepository.login(phone, password)
-                        isLoading = false
-                        result.fold(
-                            onSuccess = { user ->
-                                onLoginSuccess(user)
-                            },
-                            onFailure = { err ->
-                                generalError = err.message ?: "فشل تسجيل الدخول"
-                            }
-                        )
+                if (!isOtpMode) {
+                    if (!AuthRepository.isValidPassword(password)) {
+                        passwordError = "كلمة السر يجب أن تحتوي على 6 أحرف على الأقل"
+                        hasError = true
+                    }
+
+                    if (!hasError) {
+                        isLoading = true
+                        generalError = null
+                        coroutineScope.launch {
+                            val result = authRepository.login(phone, password)
+                            isLoading = false
+                            result.fold(
+                                onSuccess = { user ->
+                                    onLoginSuccess(user)
+                                },
+                                onFailure = { err ->
+                                    generalError = err.message ?: "فشل تسجيل الدخول"
+                                }
+                            )
+                        }
+                    }
+                } else {
+                    if (otpCode.length < 4) {
+                        otpError = "يرجى إدخال رمز التحقق المكون من 4 أرقام (1234)"
+                        hasError = true
+                    }
+
+                    if (!hasError) {
+                        isLoading = true
+                        generalError = null
+                        coroutineScope.launch {
+                            val result = authRepository.verifyOtp(phone, otpCode, null)
+                            isLoading = false
+                            result.fold(
+                                onSuccess = { user ->
+                                    onLoginSuccess(user)
+                                },
+                                onFailure = { err ->
+                                    generalError = err.message ?: "رمز التحقق غير صحيح"
+                                }
+                            )
+                        }
                     }
                 }
             }

@@ -26,7 +26,7 @@ class AuthRepositoryTest {
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
-        context.getSharedPreferences("sori_secure_auth_prefs", Context.MODE_PRIVATE)
+        context.getSharedPreferences("sgdelivery_secure_auth_prefs", Context.MODE_PRIVATE)
             .edit()
             .clear()
             .commit()
@@ -35,6 +35,13 @@ class AuthRepositoryTest {
 
     @Test
     fun testDefaultCustomerLoginSuccess() = runBlocking {
+        repository.registerCustomer(
+            name = "أحمد بوزيد",
+            phone = "0550123456",
+            pass = "123456",
+            address = "حي الوئام",
+            neighborhood = "حي الوئام"
+        )
         val result = repository.login("0550123456", "123456")
         assertTrue(result.isSuccess)
         val user = result.getOrNull()

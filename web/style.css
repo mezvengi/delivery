@@ -664,6 +664,19 @@ body {
   margin-bottom: 12px;
 }
 
+.driver-avatar-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(234, 88, 12, 0.15);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid rgba(234, 88, 12, 0.3);
+}
+
 .call-btn {
   background: #22c55e;
   color: white;
@@ -680,6 +693,98 @@ body {
   border-top: 1px solid var(--border);
   padding-top: 10px;
   font-size: 14px;
+}
+
+/* Driver Rating Card */
+.driver-rating-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  margin-top: 14px;
+  box-shadow: 0 4px 16px var(--shadow);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.rating-header h4 {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rating-header p {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.stars-rating-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 6px;
+  direction: ltr; /* Ensure left-to-right 1 to 5 progression */
+}
+
+.star-btn {
+  background: transparent;
+  border: none;
+  font-size: 36px;
+  line-height: 1;
+  color: #64748B;
+  cursor: pointer;
+  padding: 0 4px;
+  transition: transform 0.15s ease, color 0.15s ease;
+  user-select: none;
+}
+
+.star-btn:hover {
+  transform: scale(1.2);
+}
+
+.star-btn.active {
+  color: #F59E0B;
+  text-shadow: 0 0 12px rgba(245, 158, 11, 0.45);
+}
+
+.star-btn.hovered {
+  color: #FBBF24;
+}
+
+.rating-text-label {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 12px;
+  min-height: 20px;
+  transition: color 0.2s ease;
+}
+
+.rating-textarea {
+  width: 100%;
+  resize: none;
+  font-size: 12px;
+  margin-bottom: 12px;
+  min-height: 56px;
+}
+
+.rating-success-msg {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid #22c55e;
+  color: #4ade80;
+  padding: 10px 14px;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 12px;
+  animation: fadeIn 0.25s ease-in-out;
 }
 
 .hidden {

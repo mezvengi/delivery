@@ -329,7 +329,7 @@
     <div class="modal-content tracking-modal-content">
       <div class="modal-header tracking-header">
         <div>
-          <h3>تتبع الطلب المباشر 🛵</h3>
+          <h3>تتبع الطلب المباشر</h3>
           <span class="order-id-label" id="trackOrderNum">SOUR-8921</span>
         </div>
         <button class="close-btn" onclick="closeTrackingModal()">✕</button>
@@ -350,12 +350,12 @@
           <div class="step-line" id="line2"></div>
           <div class="step-item" id="step3">
             <div class="step-circle">3</div>
-            <span>قيد التوصيل 🛵</span>
+            <span>قيد التوصيل</span>
           </div>
           <div class="step-line" id="line3"></div>
-          <div class="step-item" id="step4">
+          <div class="step-item" id="step4" onclick="completeDeliverySimulation()" style="cursor: pointer;" title="اضغط لمحاكاة إتمام التسليم">
             <div class="step-circle">4</div>
-            <span>تم التسليم ✅</span>
+            <span>تم التسليم</span>
           </div>
         </div>
 
@@ -370,18 +370,54 @@
         <!-- Driver & Order Info Card -->
         <div class="tracking-info-card">
           <div class="driver-profile-row">
-            <div class="driver-avatar">🛵</div>
+            <div class="driver-avatar-circle">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
+            </div>
             <div class="driver-details">
               <h4 id="trackDriverName">أمين التوصيل (دراجة SYM)</h4>
               <p id="trackDriverPhone">هاتف: +213553333333</p>
               <div class="eta-tag">الوقت المقدر للوصول: <strong id="trackEta">8 دقائق</strong></div>
             </div>
-            <a id="trackCallBtn" href="tel:+213553333333" class="call-btn">📞 اتصال</a>
+            <a id="trackCallBtn" href="tel:+213553333333" class="call-btn">اتصال بالسائق</a>
           </div>
 
           <div class="payment-cod-notice">
             <span>المبلغ المطلوب تسليمه للسائق نقداً:</span>
             <strong id="trackTotalCod">1,150 دج</strong>
+          </div>
+        </div>
+
+        <!-- Driver Rating Section (Shown after delivery completion) -->
+        <div id="driverRatingSection" class="driver-rating-card hidden">
+          <div class="rating-header">
+            <h4>تقييم خدمة سائق التوصيل</h4>
+            <p id="ratingSubtitle">تم تسليم طلبك بنجاح. كيف كانت تجربة التوصيل والتعامل مع السائق؟</p>
+          </div>
+
+          <div class="stars-rating-container" id="starsRatingContainer" role="radiogroup" aria-label="تقييم السائق من 1 إلى 5 نجوم">
+            <button type="button" class="star-btn" data-value="1" onclick="handleStarClick(1)" onmouseenter="handleStarHover(1)" onmouseleave="handleStarLeave()" aria-label="نجمة واحدة">★</button>
+            <button type="button" class="star-btn" data-value="2" onclick="handleStarClick(2)" onmouseenter="handleStarHover(2)" onmouseleave="handleStarLeave()" aria-label="نجمتان">★</button>
+            <button type="button" class="star-btn" data-value="3" onclick="handleStarClick(3)" onmouseenter="handleStarHover(3)" onmouseleave="handleStarLeave()" aria-label="3 نجوم">★</button>
+            <button type="button" class="star-btn" data-value="4" onclick="handleStarClick(4)" onmouseenter="handleStarHover(4)" onmouseleave="handleStarLeave()" aria-label="4 نجوم">★</button>
+            <button type="button" class="star-btn" data-value="5" onclick="handleStarClick(5)" onmouseenter="handleStarHover(5)" onmouseleave="handleStarLeave()" aria-label="5 نجوم">★</button>
+          </div>
+
+          <div id="ratingTextLabel" class="rating-text-label">اضغط على النجوم لتحديد التقييم (1 - 5)</div>
+
+          <div class="rating-input-group">
+            <textarea id="ratingCommentInput" class="form-control rating-textarea" placeholder="أضف ملاحظة أو كلمة شكر للسائق (اختياري)..." rows="2"></textarea>
+          </div>
+
+          <div class="rating-actions-row">
+            <button id="submitRatingBtn" class="btn btn-primary btn-block" onclick="submitDriverRating()" disabled>
+              إرسال التقييم
+            </button>
+          </div>
+
+          <div id="ratingSuccessMsg" class="rating-success-msg hidden">
+            تم تسجيل تقييمك للسائق بنجاح. شكراً لمشاركتك القيمة!
           </div>
         </div>
       </div>

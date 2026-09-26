@@ -152,42 +152,83 @@ function renderOrderHistoryList() {
     return;
   }
 
-  container.innerHTML = customerOrderHistory.map(o => `
+  container.innerHTML = customerOrderHistory.map(o => {
+    const allRatings = getStoredRatings();
+    const existingRating = allRatings.find(r => r.orderNum === o.orderNumber) || (o.driverRating ? { rating: o.driverRating } : null);
+    const ratingDisplay = existingRating ? `<span style="color:#f59e0b;font-weight:bold;margin-right:8px;">★ ${existingRating.rating}/5</span>` : '';
+
+    return `
     <div class="shop-card" style="cursor: default; padding: 16px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
         <div>
-          <span style="font-size: 16px;">🏬</span>
           <strong style="font-size: 15px; margin-right: 6px;">${o.shopName}</strong>
           <span style="font-size: 11px; color: #94a3b8; margin-right: 6px;">${o.orderNumber}</span>
         </div>
-        <span style="background: #064e3b; color: #34d399; font-size: 11px; padding: 3px 8px; border-radius: 6px; font-weight: bold;">
-          ${o.status}
-        </span>
+        <div>
+          ${ratingDisplay}
+          <span style="background: #064e3b; color: #34d399; font-size: 11px; padding: 3px 8px; border-radius: 6px; font-weight: bold;">
+            ${o.status}
+          </span>
+        </div>
       </div>
 
       <div style="display: flex; justify-content: space-between; font-size: 12px; color: #cbd5e1; margin-bottom: 6px;">
-        <span>📅 تاريخ التوصيل: <strong>${o.deliveryDate}</strong></span>
-        <span>📍 ${o.neighborhood}</span>
+        <span>تاريخ التوصيل: <strong>${o.deliveryDate}</strong></span>
+        <span>${o.neighborhood}</span>
       </div>
 
-      ${o.driverName ? `<p style="font-size: 11px; color: #94a3b8; margin-bottom: 6px;">🛵 سائق التوصيل: ${o.driverName}</p>` : ''}
+      ${o.driverName ? `<p style="font-size: 11px; color: #94a3b8; margin-bottom: 6px;">سائق التوصيل: <strong>${o.driverName}</strong></p>` : ''}
 
-      <div style="background: #0f172a; border-radius: 8px; padding: 10px; border: 1px solid #334155; margin-bottom: 10px;">
+      <div style="background: var(--card-subtle); border-radius: 8px; padding: 10px; border: 1px solid var(--border); margin-bottom: 10px;">
         <span style="font-size: 11px; color: #94a3b8; display: block;">الوجبات المطلوبة:</span>
-        <strong style="font-size: 13px; color: #f8fafc;">${o.itemsSummary}</strong>
+        <strong style="font-size: 13px; color: var(--text-main);">${o.itemsSummary}</strong>
       </div>
 
-      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #334155; padding-top: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 10px; flex-wrap: wrap; gap: 8px;">
         <div>
           <span style="font-size: 11px; color: #94a3b8; display: block;">المبلغ الإجمالي (مع 200 دج توصيل):</span>
-          <strong style="font-size: 17px; color: #fb923c;">${o.totalPrice} دج</strong>
+          <strong style="font-size: 17px; color: var(--primary);">${o.totalPrice} دج</strong>
         </div>
-        <button class="btn btn-primary" onclick="reorderShopByName('${o.shopName}')" style="padding: 6px 14px; font-size: 12px;">
-          طلب جديد 🔁
-        </button>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-outline" onclick="openTrackingForOrder('${o.orderNumber}')" style="padding: 6px 12px; font-size: 12px;">
+            ${existingRating ? 'عرض التقييم' : 'تقييم السائق'}
+          </button>
+          <button class="btn btn-primary" onclick="reorderShopByName('${o.shopName}')" style="padding: 6px 12px; font-size: 12px;">
+            طلب جديد
+          </button>
+        </div>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
+}
+
+function openTrackingForOrder(orderNum) {
+  const order = customerOrderHistory.find(o => o.orderNumber === orderNum);
+  if (!order) return;
+
+  currentTrackingOrderNum = order.orderNumber;
+  currentTrackingDriver = {
+    id: 1,
+    name: order.driverName || 'سائق التوصيل',
+    phone: '+21355000000',
+    lat: 36.148,
+    lon: 3.690
+  };
+
+  resetDriverRatingUI();
+
+  document.getElementById('trackingModal').classList.remove('hidden');
+  document.getElementById('trackOrderNum').innerText = order.orderNumber;
+  document.getElementById('trackDriverName').innerText = order.driverName || 'سائق التوصيل';
+  document.getElementById('trackDriverPhone').innerText = 'هاتف: 0550000000';
+  document.getElementById('trackTotalCod').innerText = `${order.totalPrice} دج`;
+
+  updateStepper(4);
+  const etaEl = document.getElementById('trackEta');
+  if (etaEl) etaEl.innerText = 'تم التسليم';
+
+  showDriverRatingSection();
 }
 
 function reorderShopByName(shopName) {
@@ -507,12 +548,17 @@ function confirmOrder() {
     totalPrice: total,
     deliveryFee: DELIVERY_FEE,
     deliveryDate: dateStr,
-    status: 'قيد التوصيل 🛵',
+    status: 'قيد التوصيل',
     neighborhood: custNeighborhood,
     driverName: selectedDriver ? selectedDriver.name : null
   });
   localStorage.setItem('customer_past_orders_array', JSON.stringify(customerOrderHistory));
   updateOrderHistoryBadge();
+
+  // Track active order & driver for rating
+  currentTrackingOrderNum = orderNum;
+  currentTrackingDriver = selectedDriver;
+  resetDriverRatingUI();
 
   // Open Live Tracking Modal
   document.getElementById('trackingModal').classList.remove('hidden');
@@ -608,6 +654,20 @@ function startDriverMovementSimulation(shopCoords, customerCoords) {
     } else if (step >= totalSteps) {
       updateStepper(4); // Delivered!
       clearInterval(trackingInterval);
+      const etaEl = document.getElementById('trackEta');
+      if (etaEl) etaEl.innerText = 'تم التسليم';
+
+      // Mark in history as delivered
+      if (currentTrackingOrderNum && customerOrderHistory) {
+        const order = customerOrderHistory.find(o => o.orderNumber === currentTrackingOrderNum);
+        if (order) {
+          order.status = 'تم التسليم';
+          localStorage.setItem('customer_past_orders_array', JSON.stringify(customerOrderHistory));
+          updateOrderHistoryBadge();
+        }
+      }
+
+      showDriverRatingSection();
       return;
     }
 
@@ -642,6 +702,260 @@ function updateStepper(stepNum) {
       else line.classList.remove('active');
     }
   }
+}
+
+// ==========================================
+// DRIVER RATING AFTER DELIVERY
+// ==========================================
+let currentTrackingOrderNum = null;
+let currentTrackingDriver = null;
+let currentSelectedRating = 0;
+let isSubmittingRating = false;
+
+const RATING_DESCRIPTIONS = {
+  1: 'نجمة واحدة - تجربة غير مرضية',
+  2: 'نجمتان - مقبولة وتحتاج إلى تحسين',
+  3: '3 نجوم - خدمة جيدة والتوصيل مناسب',
+  4: '4 نجوم - خدمة سريعة وتعامل ممتاز',
+  5: '5 نجوم - خدمة استثنائية واحترافية عالية'
+};
+
+function resetDriverRatingUI() {
+  currentSelectedRating = 0;
+  isSubmittingRating = false;
+  const ratingSection = document.getElementById('driverRatingSection');
+  if (ratingSection) ratingSection.classList.add('hidden');
+
+  const successMsg = document.getElementById('ratingSuccessMsg');
+  if (successMsg) successMsg.classList.add('hidden');
+
+  const textLabel = document.getElementById('ratingTextLabel');
+  if (textLabel) {
+    textLabel.innerText = 'اضغط على النجوم لتحديد التقييم (1 - 5)';
+    textLabel.style.color = 'var(--text-muted)';
+  }
+
+  const commentInput = document.getElementById('ratingCommentInput');
+  if (commentInput) {
+    commentInput.value = '';
+    commentInput.disabled = false;
+    commentInput.classList.remove('hidden');
+  }
+
+  const submitBtn = document.getElementById('submitRatingBtn');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerText = 'إرسال التقييم';
+    submitBtn.classList.remove('hidden');
+  }
+
+  // Clear star active/hovered states
+  document.querySelectorAll('.star-btn').forEach(btn => {
+    btn.classList.remove('active', 'hovered');
+    btn.disabled = false;
+  });
+}
+
+function showDriverRatingSection() {
+  const ratingSection = document.getElementById('driverRatingSection');
+  if (!ratingSection) return;
+
+  ratingSection.classList.remove('hidden');
+
+  // Check if this order was already rated
+  const allRatings = getStoredRatings();
+  const existing = allRatings.find(r => r.orderNum === currentTrackingOrderNum);
+
+  if (existing) {
+    highlightStars(existing.rating);
+    document.querySelectorAll('.star-btn').forEach(btn => btn.disabled = true);
+
+    const textLabel = document.getElementById('ratingTextLabel');
+    if (textLabel) {
+      textLabel.innerText = `${existing.rating} من 5 - ${RATING_DESCRIPTIONS[existing.rating] || 'تم التقييم'}`;
+      textLabel.style.color = 'var(--primary)';
+    }
+
+    const commentInput = document.getElementById('ratingCommentInput');
+    if (commentInput) {
+      if (existing.comment) {
+        commentInput.value = existing.comment;
+        commentInput.disabled = true;
+      } else {
+        commentInput.classList.add('hidden');
+      }
+    }
+
+    const submitBtn = document.getElementById('submitRatingBtn');
+    if (submitBtn) submitBtn.classList.add('hidden');
+
+    const successMsg = document.getElementById('ratingSuccessMsg');
+    if (successMsg) {
+      successMsg.innerText = 'تم تقييم هذا الطلب مسبقاً بنجاح. شكراً لمشاركتك!';
+      successMsg.classList.remove('hidden');
+    }
+  } else {
+    document.querySelectorAll('.star-btn').forEach(btn => btn.disabled = false);
+  }
+}
+
+function handleStarClick(rating) {
+  const allRatings = getStoredRatings();
+  if (allRatings.some(r => r.orderNum === currentTrackingOrderNum)) return;
+
+  currentSelectedRating = rating;
+  highlightStars(rating);
+
+  const textLabel = document.getElementById('ratingTextLabel');
+  if (textLabel) {
+    textLabel.innerText = `${rating} من 5: ${RATING_DESCRIPTIONS[rating] || ''}`;
+    textLabel.style.color = 'var(--primary)';
+  }
+
+  const submitBtn = document.getElementById('submitRatingBtn');
+  if (submitBtn) submitBtn.disabled = false;
+}
+
+function handleStarHover(rating) {
+  const allRatings = getStoredRatings();
+  if (allRatings.some(r => r.orderNum === currentTrackingOrderNum)) return;
+
+  document.querySelectorAll('.star-btn').forEach(btn => {
+    const val = parseInt(btn.getAttribute('data-value'), 10);
+    if (val <= rating) {
+      btn.classList.add('hovered');
+    } else {
+      btn.classList.remove('hovered');
+    }
+  });
+
+  const textLabel = document.getElementById('ratingTextLabel');
+  if (textLabel) {
+    textLabel.innerText = `${rating} من 5: ${RATING_DESCRIPTIONS[rating] || ''}`;
+  }
+}
+
+function handleStarLeave() {
+  document.querySelectorAll('.star-btn').forEach(btn => btn.classList.remove('hovered'));
+  if (currentSelectedRating > 0) {
+    highlightStars(currentSelectedRating);
+    const textLabel = document.getElementById('ratingTextLabel');
+    if (textLabel) {
+      textLabel.innerText = `${currentSelectedRating} من 5: ${RATING_DESCRIPTIONS[currentSelectedRating] || ''}`;
+      textLabel.style.color = 'var(--primary)';
+    }
+  } else {
+    const textLabel = document.getElementById('ratingTextLabel');
+    if (textLabel) {
+      textLabel.innerText = 'اضغط على النجوم لتحديد التقييم (1 - 5)';
+      textLabel.style.color = 'var(--text-muted)';
+    }
+  }
+}
+
+function highlightStars(count) {
+  document.querySelectorAll('.star-btn').forEach(btn => {
+    const val = parseInt(btn.getAttribute('data-value'), 10);
+    if (val <= count) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+}
+
+function getStoredRatings() {
+  try {
+    const data = localStorage.getItem('sg_driver_ratings');
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+async function submitDriverRating() {
+  if (currentSelectedRating <= 0 || isSubmittingRating) return;
+
+  isSubmittingRating = true;
+  const submitBtn = document.getElementById('submitRatingBtn');
+  const commentInput = document.getElementById('ratingCommentInput');
+  const comment = commentInput ? commentInput.value.trim() : '';
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerText = 'جاري حفظ التقييم...';
+  }
+
+  const ratingRecord = {
+    orderNum: currentTrackingOrderNum,
+    driverId: currentTrackingDriver ? currentTrackingDriver.id : null,
+    driverName: currentTrackingDriver ? currentTrackingDriver.name : 'سائق التوصيل',
+    rating: currentSelectedRating,
+    comment: comment,
+    createdAt: new Date().toISOString()
+  };
+
+  // 1. Save to local storage
+  const allRatings = getStoredRatings();
+  allRatings.unshift(ratingRecord);
+  localStorage.setItem('sg_driver_ratings', JSON.stringify(allRatings));
+
+  // 2. Update order history record
+  if (currentTrackingOrderNum && customerOrderHistory) {
+    const orderIndex = customerOrderHistory.findIndex(o => o.orderNumber === currentTrackingOrderNum);
+    if (orderIndex !== -1) {
+      customerOrderHistory[orderIndex].driverRating = currentSelectedRating;
+      customerOrderHistory[orderIndex].ratingComment = comment;
+      localStorage.setItem('customer_past_orders_array', JSON.stringify(customerOrderHistory));
+    }
+  }
+
+  // 3. Attempt sending to API endpoint if available (graceful)
+  try {
+    const token = localStorage.getItem('sg_auth_token');
+    await fetch(`/api/drivers/${ratingRecord.driverId || 1}/rate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify(ratingRecord)
+    });
+  } catch (e) {
+    // Offline / fallback handled cleanly
+  }
+
+  // 4. Update UI
+  document.querySelectorAll('.star-btn').forEach(btn => btn.disabled = true);
+  if (commentInput) commentInput.disabled = true;
+  if (submitBtn) submitBtn.classList.add('hidden');
+
+  const successMsg = document.getElementById('ratingSuccessMsg');
+  if (successMsg) {
+    successMsg.innerText = 'تم تسجيل تقييمك للسائق بنجاح. شكراً لمشاركتك!';
+    successMsg.classList.remove('hidden');
+  }
+
+  isSubmittingRating = false;
+}
+
+function completeDeliverySimulation() {
+  if (trackingInterval) clearInterval(trackingInterval);
+  updateStepper(4);
+  const etaEl = document.getElementById('trackEta');
+  if (etaEl) etaEl.innerText = 'تم التسليم';
+
+  // Mark in history as delivered
+  if (currentTrackingOrderNum && customerOrderHistory) {
+    const order = customerOrderHistory.find(o => o.orderNumber === currentTrackingOrderNum);
+    if (order) {
+      order.status = 'تم التسليم';
+      localStorage.setItem('customer_past_orders_array', JSON.stringify(customerOrderHistory));
+      updateOrderHistoryBadge();
+    }
+  }
+
+  showDriverRatingSection();
 }
 
 // ROLE SWITCHER
