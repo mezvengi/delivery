@@ -42,6 +42,14 @@ app.get('/', (req, res) => {
   res.redirect('/app');
 });
 
+// Admin browser URL direct access redirects to frontend admin panel
+app.get('/admin', (req, res, next) => {
+  if (req.headers.accept && req.headers.accept.includes('text/html')) {
+    return res.redirect('/app/?role=admin');
+  }
+  next();
+});
+
 // Mount API routes
 app.use('/api/auth', authRoutes);
 app.use('/auth', authRoutes);
