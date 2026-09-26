@@ -1168,10 +1168,26 @@ function applyTheme(theme) {
 let currentAuthUser = null;
 
 function initAuth() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const requestedRole = urlParams.get('role') || (window.location.hash ? window.location.hash.replace('#', '') : null);
+
   const storedUser = localStorage.getItem('sg_auth_user');
   if (storedUser) {
     try {
       currentAuthUser = JSON.parse(storedUser);
+      if (requestedRole === 'admin') {
+        if (currentAuthUser.role === 'admin') {
+          applyUserSession(currentAuthUser);
+          return;
+        } else {
+          // Logged in as non-admin, prompt for admin credentials
+          openAuthModal('login');
+          const phoneInput = document.getElementById('loginPhone');
+          if (phoneInput) phoneInput.value = '0555000000';
+          setAuthAlert('أنت مسجل حالياً كـ (' + (currentAuthUser.full_name || currentAuthUser.role) + '). يرجى تسجيل الدخول بحساب الإدارة للوصول للوحة التحكم 👑');
+          return;
+        }
+      }
       applyUserSession(currentAuthUser);
       return;
     } catch (e) {
@@ -1179,7 +1195,15 @@ function initAuth() {
     }
   }
 
-  // Not logged in: Check if visitor already dismissed modal during this session
+  // Not logged in
+  if (requestedRole === 'admin') {
+    openAuthModal('login');
+    const phoneInput = document.getElementById('loginPhone');
+    if (phoneInput) phoneInput.value = '0555000000';
+    setAuthAlert('مرحباً بك! يرجى إدخال كلمة مرور حساب الإدارة للدخول إلى لوحة التحكم 👑', 'success');
+    return;
+  }
+
   const isGuest = sessionStorage.getItem('sg_guest_browsing');
   if (!isGuest) {
     // Automatically show auth modal on first launch!
