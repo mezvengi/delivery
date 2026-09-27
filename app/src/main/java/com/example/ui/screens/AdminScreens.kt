@@ -16,24 +16,31 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.TwoWheeler
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -69,6 +76,12 @@ fun AdminDashboardScreen(
     var pendingUsers by remember { mutableStateOf<List<PendingUserDto>>(emptyList()) }
     var isLoadingPending by remember { mutableStateOf(false) }
 
+    var allUsers by remember { mutableStateOf<List<com.example.data.network.AdminUserDto>>(emptyList()) }
+    var isLoadingAllUsers by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedRoleFilter by remember { mutableStateOf("all") }
+    var userToDelete by remember { mutableStateOf<com.example.data.network.AdminUserDto?>(null) }
+
     fun refreshPendingUsers() {
         if (authRepository == null) return
         isLoadingPending = true
@@ -81,8 +94,21 @@ fun AdminDashboardScreen(
         }
     }
 
+    fun refreshAllUsers() {
+        if (authRepository == null) return
+        isLoadingAllUsers = true
+        coroutineScope.launch {
+            val result = authRepository.getAllUsers()
+            isLoadingAllUsers = false
+            result.onSuccess { list ->
+                allUsers = list
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         refreshPendingUsers()
+        refreshAllUsers()
     }
 
     val totalRevenue = orders.sumOf { it.total }
@@ -119,6 +145,16 @@ fun AdminDashboardScreen(
                             )
                         }
                     }
+                }
+            )
+            Tab(
+                selected = selectedTab == 2,
+                onClick = {
+                    selectedTab = 2
+                    refreshAllUsers()
+                },
+                text = {
+                    Text("إدارة الحسابات", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
             )
         }
@@ -437,6 +473,200 @@ fun AdminDashboardScreen(
                     }
                 }
             }
+        }
+
+        if (selectedTab == 2) {
+            val filteredUsers = allUsers.filter { u ->
+                val matchesRole = when (selectedRoleFilter) {
+                    "customer" -> u.role.equals("customer", ignoreCase = true)
+                    "shop" -> u.role.equals("shop", ignoreCase = true) || u.role.equals("store", ignoreCase = true)
+                    "driver" -> u.role.equals("driver", ignoreCase = true)
+                    "suspended" -> !u.is_active
+                    else -> true
+                }
+                val matchesSearch = if (searchQuery.isBlank()) true else {
+                    u.name.contains(searchQuery, ignoreCase = true) ||
+                    (u.phone?.contains(searchQuery) == true) ||
+                    u.role.contains(searchQuery, ignoreCase = true)
+                }
+                matchesRole && matchesSearch
+            }
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                contentPadding = PaddingValues(bottom = 60.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "إدارة وحظر وحذف الحسابات (${filteredUsers.size})",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                            IconButton(onClick = { refreshAllUsers() }) {
+                                Icon(Icons.Default.Refresh, contentDescription = "تحديث")
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("بحث بالاسم أو رقم الهاتف...", fontSize = 12.sp) },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(10.dp)
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf("all" to "الكل", "customer" to "زبائن", "shop" to "متاجر", "driver" to "سائقين", "suspended" to "معلقين").forEach { (key, label) ->
+                                FilterChip(
+                                    selected = selectedRoleFilter == key,
+                                    onClick = { selectedRoleFilter = key },
+                                    label = { Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (filteredUsers.isEmpty()) {
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "لا توجد حسابات مطابقة لمعايير البحث.",
+                                modifier = Modifier.padding(24.dp),
+                                color = MaterialTheme.colorScheme.outline,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                } else {
+                    items(filteredUsers, key = { it.id }) { u ->
+                        val isMainAdmin = u.phone == "0555000000" || u.role.equals("admin", ignoreCase = true)
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        val icon = when (u.role.lowercase()) {
+                                            "driver" -> Icons.Default.TwoWheeler
+                                            "shop", "store" -> Icons.Default.Store
+                                            else -> Icons.Default.Person
+                                        }
+                                        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(u.name, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
+
+                                    val statusColor = if (u.is_active) Color(0xFF16A34A) else Color(0xFFDC2626)
+                                    val statusText = if (u.is_active) "مفعّل" else "معلّق"
+                                    Text(
+                                        text = statusText,
+                                        color = statusColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        modifier = Modifier
+                                            .background(statusColor.copy(alpha = 0.12f), RoundedCornerShape(6.dp))
+                                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "الهاتف: ${u.phone ?: "غير متوفر"} | الدور: ${u.role}",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+
+                                if (!isMainAdmin) {
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        FilledTonalButton(
+                                            onClick = {
+                                                coroutineScope.launch {
+                                                    val newStatus = if (u.is_active) "suspended" else "active"
+                                                    authRepository?.updateUserStatus(u.id, newStatus)
+                                                    refreshAllUsers()
+                                                }
+                                            },
+                                            modifier = Modifier.weight(1f),
+                                            colors = ButtonDefaults.filledTonalButtonColors(
+                                                containerColor = if (u.is_active) Color(0xFFF59E0B).copy(alpha = 0.15f) else Color(0xFF22C55E).copy(alpha = 0.15f),
+                                                contentColor = if (u.is_active) Color(0xFFB45309) else Color(0xFF15803D)
+                                            )
+                                        ) {
+                                            Text(if (u.is_active) "🛑 تعليق" else "✅ تفعيل", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
+
+                                        OutlinedButton(
+                                            onClick = { userToDelete = u },
+                                            modifier = Modifier.weight(1f),
+                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                        ) {
+                                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("حذف", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        userToDelete?.let { targetUser ->
+            AlertDialog(
+                onDismissRequest = { userToDelete = null },
+                title = { Text("تأكيد حذف الحساب", fontWeight = FontWeight.Bold) },
+                text = { Text("هل أنت متأكد تماماً من رغبتك في حذف حساب (${targetUser.name}) نهائياً من قاعدة البيانات؟ لا يمكن التراجع عن هذا الإجراء.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                authRepository?.deleteUser(targetUser.id)
+                                userToDelete = null
+                                refreshAllUsers()
+                            }
+                        }
+                    ) {
+                        Text("نعم، حذف نهائياً", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { userToDelete = null }) {
+                        Text("إلغاء")
+                    }
+                }
+            )
         }
     }
 }

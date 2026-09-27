@@ -257,6 +257,21 @@ data class UpdateStatusRequest(
 // 5. DTOs: Admin Approvals & Management
 // ==============================================================================
 
+data class AdminUserDto(
+    val id: Long,
+    val name: String,
+    val phone: String? = null,
+    val role: String,
+    val is_active: Boolean = true,
+    val status: String = "active",
+    val created_at: String? = null
+)
+
+data class AllUsersResponse(
+    val success: Boolean = true,
+    val users: List<AdminUserDto>? = null
+)
+
 data class PendingUserDto(
     val id: Long,
     val full_name: String,
@@ -336,6 +351,18 @@ interface SoriApiService {
     suspend fun updateUserStatus(
         @Path("userId") userId: Long,
         @Body request: UpdateUserStatusRequest
+    ): retrofit2.Response<Unit>
+
+    @GET("/api/admin/users")
+    suspend fun getAllUsers(
+        @retrofit2.http.Query("role") role: String? = null,
+        @retrofit2.http.Query("status") status: String? = null,
+        @retrofit2.http.Query("search") search: String? = null
+    ): AllUsersResponse
+
+    @retrofit2.http.DELETE("/api/admin/users/{userId}")
+    suspend fun deleteUser(
+        @Path("userId") userId: Long
     ): retrofit2.Response<Unit>
 
     // Compatibility endpoints

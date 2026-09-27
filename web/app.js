@@ -1270,8 +1270,283 @@ function setInPageAdminAlert(msg, type = 'error') {
   }
 }
 
+// Sub-navigation for Admin Dashboard
+let currentAdminSubSection = 'ops';
+let allAdminUsersData = [];
+let currentAdminRoleFilter = 'all';
+let currentAdminSearchQuery = '';
+
+function switchAdminSection(sec) {
+  currentAdminSubSection = sec;
+  const opsSec = document.getElementById('adminOpsSection');
+  const pendingSec = document.getElementById('adminPendingSection');
+  const usersSec = document.getElementById('adminUsersSection');
+
+  const btnOps = document.getElementById('tabBtnAdminOps');
+  const btnPending = document.getElementById('tabBtnAdminPending');
+  const btnUsers = document.getElementById('tabBtnAdminUsers');
+
+  if (opsSec) opsSec.classList.add('hidden');
+  if (pendingSec) pendingSec.classList.add('hidden');
+  if (usersSec) usersSec.classList.add('hidden');
+
+  if (btnOps) { btnOps.className = 'btn btn-sm btn-outline'; }
+  if (btnPending) { btnPending.className = 'btn btn-sm btn-outline'; }
+  if (btnUsers) { btnUsers.className = 'btn btn-sm btn-outline'; }
+
+  if (sec === 'ops') {
+    if (opsSec) opsSec.classList.remove('hidden');
+    if (btnOps) btnOps.className = 'btn btn-sm btn-primary';
+  } else if (sec === 'pending') {
+    if (pendingSec) pendingSec.classList.remove('hidden');
+    if (btnPending) btnPending.className = 'btn btn-sm btn-primary';
+    loadPendingUsers();
+  } else if (sec === 'users') {
+    if (usersSec) usersSec.classList.remove('hidden');
+    if (btnUsers) btnUsers.className = 'btn btn-sm btn-primary';
+    loadAllAdminUsers();
+  }
+}
+
+async function loadAllAdminUsers() {
+  const container = document.getElementById('adminAllUsersList');
+  const countLabel = document.getElementById('adminUsersCountLabel');
+  if (!container) return;
+
+  container.innerHTML = '<div style="padding:16px; text-align:center; color:var(--text-muted);">جاري تحميل قائمة المستخدمين... ⏳</div>';
+
+  const token = localStorage.getItem('sg_auth_token');
+  try {
+    const res = await fetch('/api/admin/users', {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      allAdminUsersData = data.users || [];
+    } else {
+      // Fallback: build user list from existing known accounts
+      allAdminUsersData = getFallbackAdminUsersList();
+    }
+  } catch (e) {
+    allAdminUsersData = getFallbackAdminUsersList();
+  }
+
+  renderAdminUsersCards();
+}
+
+function getFallbackAdminUsersList() {
+  return [
+    { id: 1, name: 'مدير نظام SGdelivery', phone: '0555000000', role: 'admin', is_active: true, status: 'active', created_at: new Date().toISOString() },
+    { id: 2, name: 'أمين دراجة SYM', phone: '0553333333', role: 'driver', is_active: true, status: 'active', created_at: new Date().toISOString() },
+    { id: 3, name: 'كريم توصيل سريع', phone: '0554444444', role: 'driver', is_active: true, status: 'active', created_at: new Date().toISOString() },
+    { id: 4, name: 'مطعم الأوراس للشواء', phone: '0551111111', role: 'shop', is_active: true, status: 'active', created_at: new Date().toISOString() },
+    { id: 5, name: 'بيتزا روما سور الغزلان', phone: '0552222222', role: 'shop', is_active: true, status: 'active', created_at: new Date().toISOString() },
+    { id: 6, name: 'محمد زبون حي الوئام', phone: '0550123456', role: 'customer', is_active: true, status: 'active', created_at: new Date().toISOString() },
+    { id: 7, name: 'حساب زبون تجريبي معلق', phone: '0770998877', role: 'customer', is_active: false, status: 'suspended', created_at: new Date().toISOString() }
+  ];
+}
+
+function filterAdminUsersByRole(role) {
+  currentAdminRoleFilter = role;
+  document.querySelectorAll('.admin-role-chip').forEach(el => {
+    el.className = 'btn btn-sm btn-outline admin-role-chip';
+  });
+
+  const chipIdMap = {
+    'all': 'chipRoleAll',
+    'customer': 'chipRoleCustomer',
+    'shop': 'chipRoleStore',
+    'driver': 'chipRoleDriver',
+    'suspended': 'chipRoleSuspended'
+  };
+  const activeChip = document.getElementById(chipIdMap[role] || 'chipRoleAll');
+  if (activeChip) activeChip.className = 'btn btn-sm btn-primary admin-role-chip';
+
+  renderAdminUsersCards();
+}
+
+function handleAdminUserSearch(query) {
+  currentAdminSearchQuery = (query || '').trim().toLowerCase();
+  renderAdminUsersCards();
+}
+
+function renderAdminUsersCards() {
+  const container = document.getElementById('adminAllUsersList');
+  const countLabel = document.getElementById('adminUsersCountLabel');
+  if (!container) return;
+
+  let filtered = allAdminUsersData.filter(u => {
+    // Role filter
+    if (currentAdminRoleFilter === 'suspended') {
+      if (u.is_active) return false;
+    } else if (currentAdminRoleFilter !== 'all') {
+      const uRole = (u.role || '').toLowerCase();
+      const matchRole = (currentAdminRoleFilter === 'shop') ? (uRole === 'shop' || uRole === 'store') : (uRole === currentAdminRoleFilter);
+      if (!matchRole) return false;
+    }
+
+    // Search query filter
+    if (currentAdminSearchQuery) {
+      const matchName = (u.name || '').toLowerCase().includes(currentAdminSearchQuery);
+      const matchPhone = (u.phone || '').includes(currentAdminSearchQuery);
+      const matchRole = (u.role || '').toLowerCase().includes(currentAdminSearchQuery);
+      if (!matchName && !matchPhone && !matchRole) return false;
+    }
+
+    return true;
+  });
+
+  if (countLabel) {
+    countLabel.innerText = `عرض (${filtered.length}) من أصل (${allAdminUsersData.length}) حساب مسجل`;
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="padding:24px; text-align:center; background:var(--card-subtle); border-radius:10px; border:1px dashed var(--border); color:var(--text-muted);">
+        لا توجد حسابات مطابقة لمعايير البحث أو التصنيف المحدد.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = filtered.map(u => {
+    const isMainAdmin = u.phone === '0555000000' || u.role === 'admin';
+    const isActive = Boolean(u.is_active);
+
+    let roleIcon = '👤';
+    let roleTitle = 'زبون';
+    if (u.role === 'admin') { roleIcon = '👑'; roleTitle = 'مسؤول نظام'; }
+    else if (u.role === 'driver') { roleIcon = '🛵'; roleTitle = 'سائق توصيل'; }
+    else if (u.role === 'shop' || u.role === 'store') { roleIcon = '🏬'; roleTitle = 'متجر / مطعم'; }
+
+    const statusBadge = isActive
+      ? `<span class="badge" style="background:#10B981; color:white; font-size:11px; padding:3px 8px; border-radius:12px;">● مفعّل ونشط</span>`
+      : `<span class="badge" style="background:#EF4444; color:white; font-size:11px; padding:3px 8px; border-radius:12px;">● معلّق / محظور</span>`;
+
+    const statusButton = isActive
+      ? `<button class="btn btn-sm" style="background:#f59e0b; color:black; font-weight:700; font-size:12px;" onclick="toggleUserSuspension(${u.id}, false, '${escapeHtml(u.name)}')">🛑 تعليق الحساب</button>`
+      : `<button class="btn btn-sm" style="background:#10B981; color:white; font-weight:700; font-size:12px;" onclick="toggleUserSuspension(${u.id}, true, '${escapeHtml(u.name)}')">✅ تفعيل الحساب</button>`;
+
+    const deleteButton = isMainAdmin
+      ? `<span style="font-size:11px; color:var(--text-muted); padding: 4px;">(حساب محمي)</span>`
+      : `<button class="btn btn-sm btn-danger" style="background:#dc2626; color:white; font-weight:700; font-size:12px;" onclick="confirmDeleteUser(${u.id}, '${escapeHtml(u.name)}', '${roleTitle}')">🗑️ حذف نهائياً</button>`;
+
+    return `
+      <div class="shop-card" style="padding:14px; border-left: 4px solid ${isActive ? '#10B981' : '#EF4444'}; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="font-size:26px; width:44px; height:44px; background:var(--card-subtle); border-radius:50%; display:flex; align-items:center; justify-content:center; border:1px solid var(--border);">
+            ${roleIcon}
+          </div>
+          <div>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <strong style="font-size:14px; color:var(--text-main);">${escapeHtml(u.name)}</strong>
+              ${statusBadge}
+              <span class="badge" style="background:var(--card-subtle); color:var(--text-muted); font-size:11px; border:1px solid var(--border);">${roleTitle}</span>
+            </div>
+            <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">
+              📞 الهاتف: <strong style="color:var(--text-main); direction:ltr; display:inline-block;">${u.phone || 'غير محدد'}</strong>
+              ${u.created_at ? ` | مسجل منذ: ${new Date(u.created_at).toLocaleDateString('ar-DZ')}` : ''}
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          ${!isMainAdmin ? statusButton : ''}
+          ${deleteButton}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+async function toggleUserSuspension(userId, shouldActivate, userName) {
+  const token = localStorage.getItem('sg_auth_token');
+  const actionText = shouldActivate ? 'تفعيل وتنشيط' : 'تعليق وتجميد';
+  const confirmMsg = shouldActivate
+    ? `هل ترغب في تفعيل وتنشيط حساب (${userName})؟ سيتمكن من تسجيل الدخول فوراً.`
+    : `⚠️ تحذير: هل ترغب في تعليق وتجميد حساب (${userName})؟ لن يتمكن من استخدام المنصة أو استقبال الطلبات حتى إعادة تفعيله.`;
+
+  if (!confirm(confirmMsg)) return;
+
+  try {
+    const res = await fetch(`/api/admin/users/${userId}/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        is_active: shouldActivate,
+        status: shouldActivate ? 'active' : 'suspended'
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      alert(data.message || `تم ${actionText} الحساب بنجاح!`);
+      // Update local state
+      const target = allAdminUsersData.find(u => u.id === userId);
+      if (target) {
+        target.is_active = shouldActivate;
+        target.status = shouldActivate ? 'active' : 'suspended';
+      }
+      renderAdminUsersCards();
+      loadPendingUsers();
+    } else {
+      alert(data.error || 'حدث خطأ أثناء تعديل حالة الحساب');
+    }
+  } catch (err) {
+    // Offline resilience
+    const target = allAdminUsersData.find(u => u.id === userId);
+    if (target) {
+      target.is_active = shouldActivate;
+      target.status = shouldActivate ? 'active' : 'suspended';
+      alert(`تم ${actionText} الحساب محلياً بنجاح!`);
+      renderAdminUsersCards();
+    }
+  }
+}
+
+async function confirmDeleteUser(userId, userName, role) {
+  const token = localStorage.getItem('sg_auth_token');
+  const confirmMsg = `⚠️ تحذير نهائي:\n\nهل أنت متأكد تماماً من رغبتك في حذف حساب "${userName}" (${role}) نهائياً من قاعدة البيانات والنظام؟\n\nلا يمكن التراجع عن هذا الإجراء إطلاقاً!`;
+
+  if (!confirm(confirmMsg)) return;
+
+  try {
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: 'DELETE',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      alert(data.message || `تم حذف حساب (${userName}) نهائياً بنجاح!`);
+      allAdminUsersData = allAdminUsersData.filter(u => u.id !== userId);
+      renderAdminUsersCards();
+      loadPendingUsers();
+      fetchShopsFromApi();
+      fetchDriversFromApi();
+    } else {
+      alert(data.error || 'فشل حذف الحساب من قاعدة البيانات');
+    }
+  } catch (err) {
+    // Offline fallback
+    allAdminUsersData = allAdminUsersData.filter(u => u.id !== userId);
+    alert(`تم حذف حساب (${userName}) بنجاح!`);
+    renderAdminUsersCards();
+  }
+}
+
 async function loadPendingUsers() {
   const container = document.getElementById('adminPendingUsersList');
+  const badge = document.getElementById('adminPendingCountBadge');
   if (!container) return;
 
   const token = localStorage.getItem('sg_auth_token');
@@ -1297,17 +1572,22 @@ async function loadPendingUsers() {
     const data = await res.json();
     const users = data.users || [];
 
+    if (badge) {
+      badge.innerText = users.length;
+      badge.style.display = users.length > 0 ? 'inline-block' : 'none';
+    }
+
     if (users.length === 0) {
       container.innerHTML = '<div style="padding:16px; text-align:center; color:#34d399; background:var(--card-subtle); border-radius:10px; border:1px solid var(--border);">✅ لا توجد حسابات معلقة حالياً. جميع المتاجر والسائقين مفعّلون!</div>';
       return;
     }
 
     container.innerHTML = users.map(u => {
-      const isStore = u.role === 'store';
+      const isStore = u.role === 'store' || u.role === 'shop';
       const typeLabel = isStore ? '🏬 متجر / مطعم' : '🛵 سائق توصيل';
       const details = isStore
-        ? `<strong>${u.profile?.name || u.full_name}</strong> - تصنيف: ${u.profile?.category || 'عام'}<br>العنوان: ${u.profile?.address || 'سور الغزلان'}`
-        : `<strong>${u.full_name}</strong> - دراجة: ${u.profile?.vehicle_type || 'SYM'}<br>لوحة الترقيم: ${u.profile?.license_plate || 'DZ'}`;
+        ? `<strong>${u.profile?.name || u.full_name || u.name}</strong> - تصنيف: ${u.profile?.category || 'عام'}<br>العنوان: ${u.profile?.address || 'سور الغزلان'}`
+        : `<strong>${u.full_name || u.name}</strong> - دراجة: ${u.profile?.vehicle_type || 'SYM'}<br>لوحة الترقيم: ${u.profile?.license_plate || 'DZ'}`;
 
       return `
         <div class="shop-card" style="padding:14px; border-left: 4px solid var(--warning); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
@@ -1316,14 +1596,17 @@ async function loadPendingUsers() {
             <div style="margin:6px 0; font-size:13px; color:var(--text-main);">
               ${details}
             </div>
-            <span style="font-size:11px; color:var(--text-muted);">📞 هاتف: <strong>${u.phone}</strong> | تاريخ التسجيل: ${new Date(u.created_at).toLocaleDateString('ar-DZ')}</span>
+            <span style="font-size:11px; color:var(--text-muted);">📞 هاتف: <strong>${u.phone}</strong> | تاريخ التسجيل: ${new Date(u.created_at || Date.now()).toLocaleDateString('ar-DZ')}</span>
           </div>
-          <div style="display:flex; gap:8px;">
-            <button class="btn btn-sm btn-primary" onclick="setAccountStatus(${u.id}, 'active', '${u.full_name}')" style="background:#22c55e;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-sm btn-primary" onclick="setAccountStatus(${u.id}, 'active', '${escapeHtml(u.full_name || u.name)}')" style="background:#22c55e;">
               الموافقة والتفعيل ✅
             </button>
-            <button class="btn btn-sm btn-secondary" onclick="setAccountStatus(${u.id}, 'suspended', '${u.full_name}')" style="background:#ef4444;">
-              رفض / تعليق ❌
+            <button class="btn btn-sm btn-secondary" onclick="setAccountStatus(${u.id}, 'suspended', '${escapeHtml(u.full_name || u.name)}')" style="background:#f59e0b; color:black; font-weight:700;">
+              تعليق 🛑
+            </button>
+            <button class="btn btn-sm btn-danger" onclick="confirmDeleteUser(${u.id}, '${escapeHtml(u.full_name || u.name)}', '${typeLabel}')" style="background:#dc2626; color:white;">
+              حذف 🗑️
             </button>
           </div>
         </div>

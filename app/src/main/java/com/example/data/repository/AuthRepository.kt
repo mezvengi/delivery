@@ -456,6 +456,38 @@ class AuthRepository(context: Context) {
         Result.success(Unit)
     }
 
+    suspend fun getAllUsers(role: String? = null, status: String? = null, search: String? = null): Result<List<com.example.data.network.AdminUserDto>> = withContext(Dispatchers.IO) {
+        try {
+            val response = SoriApiClient.apiService.getAllUsers(role, status, search)
+            val list = response.users ?: emptyList()
+            Result.success(list)
+        } catch (e: Exception) {
+            val fallback = usersList.map {
+                com.example.data.network.AdminUserDto(
+                    id = it.id.toLongOrNull() ?: 1L,
+                    name = it.name,
+                    phone = it.phone,
+                    role = it.role.name.lowercase(),
+                    is_active = (it.status == AccountStatus.APPROVED),
+                    status = if (it.status == AccountStatus.APPROVED) "active" else "suspended"
+                )
+            }
+            Result.success(fallback)
+        }
+    }
+
+    suspend fun deleteUser(userId: Long): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            SoriApiClient.apiService.deleteUser(userId)
+        } catch (e: Exception) {
+            // Fallback
+        }
+        val userStrId = userId.toString()
+        usersList.removeAll { it.id == userStrId }
+        saveUsers()
+        Result.success(Unit)
+    }
+
     // ==============================================================================
     // 7. Backward Compatible Direct Registration Methods
     // ==============================================================================

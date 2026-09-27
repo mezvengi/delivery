@@ -283,43 +283,99 @@
           </button>
         </div>
 
-        <div class="stats-row">
-          <div class="stat-card">
-            <span class="stat-val" id="adminTotalOrders">12</span>
-            <span class="stat-lbl">طلبات اليوم</span>
+        <!-- Admin Navigation Sub-Tabs -->
+        <div class="admin-nav-tabs" style="display: flex; gap: 8px; margin: 16px 0 20px 0; border-bottom: 2px solid var(--border); padding-bottom: 12px; flex-wrap: wrap;">
+          <button id="tabBtnAdminOps" class="btn btn-sm btn-primary" onclick="switchAdminSection('ops')">
+            📊 الإحصائيات والعمليات
+          </button>
+          <button id="tabBtnAdminPending" class="btn btn-sm btn-outline" onclick="switchAdminSection('pending')">
+            ⏳ طلبات التفعيل المعلقة <span id="adminPendingCountBadge" class="badge" style="background:#f59e0b; color:black; font-size:11px; margin-right:4px;">0</span>
+          </button>
+          <button id="tabBtnAdminUsers" class="btn btn-sm btn-outline" onclick="switchAdminSection('users')">
+            👥 إدارة كافة الحسابات (تعليق / حذف)
+          </button>
+        </div>
+
+        <!-- SECTION 1: OPERATIONS & STATS -->
+        <div id="adminOpsSection">
+          <div class="stats-row">
+            <div class="stat-card">
+              <span class="stat-val" id="adminTotalOrders">12</span>
+              <span class="stat-lbl">طلبات اليوم</span>
+            </div>
+            <div class="stat-card highlight">
+              <span class="stat-val" id="adminRevenue">14,200 دج</span>
+              <span class="stat-lbl">مجموع المبيعات</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-val" id="adminActiveDrivers">2</span>
+              <span class="stat-lbl">سائقين متصلين 🛵</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-val" id="adminActiveShops">4</span>
+              <span class="stat-lbl">متاجر مفتوحة</span>
+            </div>
           </div>
-          <div class="stat-card highlight">
-            <span class="stat-val" id="adminRevenue">14,200 دج</span>
-            <span class="stat-lbl">مجموع المبيعات</span>
+
+          <div class="geofence-card">
+            <h4>النطاق الجغرافي المعتمد (Geofence):</h4>
+            <p>📍 مركز البلدية: <strong>36.1480° N, 3.6900° E</strong> (نصف القطر: 8 كم - بلدية سور الغزلان)</p>
           </div>
-          <div class="stat-card">
-            <span class="stat-val" id="adminActiveDrivers">2</span>
-            <span class="stat-lbl">سائقين متصلين 🛵</span>
+
+          <div class="section-title" style="margin-top: 20px;">
+            <h3>سجل كافة العمليات والطلبات المباشرة</h3>
           </div>
-          <div class="stat-card">
-            <span class="stat-val" id="adminActiveShops">4</span>
-            <span class="stat-lbl">متاجر مفتوحة</span>
+          <div id="adminOrdersList" class="orders-list"></div>
+        </div>
+
+        <!-- SECTION 2: PENDING APPROVALS -->
+        <div id="adminPendingSection" class="hidden">
+          <div class="section-title" style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+            <h3>🔔 طلبات الحسابات بانتظار تفعيل الإدارة</h3>
+            <button class="btn btn-sm btn-outline" onclick="loadPendingUsers()">تحديث الطلبات 🔄</button>
+          </div>
+          <div id="adminPendingUsersList" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
+            <!-- Populated dynamically -->
           </div>
         </div>
 
-        <div class="geofence-card">
-          <h4>النطاق الجغرافي المعتمد (Geofence):</h4>
-          <p>📍 مركز البلدية: <strong>36.1480° N, 3.6900° E</strong> (نصف القطر: 8 كم - بلدية سور الغزلان)</p>
-        </div>
+        <!-- SECTION 3: ALL USERS MANAGEMENT (SUSPEND / DELETE / REACTIVATE) -->
+        <div id="adminUsersSection" class="hidden">
+          <div style="background: var(--card-subtle); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 18px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 14px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 800; color: var(--text-main); margin-bottom: 4px;">👥 إدارة وحظر وحذف الحسابات</h3>
+                <p style="font-size: 12px; color: var(--text-muted); margin: 0;">التحكم الكامل بجميع حسابات الزبائن، المتاجر، والسائقين (تفعيل، تعليق/تجميد، أو حذف نهائي)</p>
+              </div>
+              <button class="btn btn-sm btn-outline" onclick="loadAllAdminUsers()">
+                تحديث القائمة 🔄
+              </button>
+            </div>
 
-        <!-- Pending Accounts Approval Section -->
-        <div class="section-title" style="display:flex; justify-content:space-between; align-items:center; margin-top:24px;">
-          <h3>🔔 طلبات الحسابات بانتظار تفعيل الإدارة</h3>
-          <button class="btn btn-sm btn-outline" onclick="loadPendingUsers()">تحديث الطلبات 🔄</button>
-        </div>
-        <div id="adminPendingUsersList" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
-          <!-- Populated dynamically -->
-        </div>
+            <!-- Filters and Search Bar -->
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <input type="text" id="adminUserSearchInput" class="form-control" placeholder="🔍 ابحث بالاسم، برقم الهاتف الجزائري، أو الدور..." oninput="handleAdminUserSearch(this.value)">
 
-        <div class="section-title">
-          <h3>سجل كافة العمليات المباشرة</h3>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                <span style="font-size: 12px; color: var(--text-muted); font-weight: 700;">التصنيف:</span>
+                <button class="btn btn-sm btn-primary admin-role-chip" id="chipRoleAll" onclick="filterAdminUsersByRole('all')">الكل</button>
+                <button class="btn btn-sm btn-outline admin-role-chip" id="chipRoleCustomer" onclick="filterAdminUsersByRole('customer')">👤 الزبائن</button>
+                <button class="btn btn-sm btn-outline admin-role-chip" id="chipRoleStore" onclick="filterAdminUsersByRole('shop')">🏬 المتاجر</button>
+                <button class="btn btn-sm btn-outline admin-role-chip" id="chipRoleDriver" onclick="filterAdminUsersByRole('driver')">🛵 السائقين</button>
+                <button class="btn btn-sm btn-outline admin-role-chip" id="chipRoleSuspended" onclick="filterAdminUsersByRole('suspended')">🛑 المعلقة فقط</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <span id="adminUsersCountLabel" style="font-size: 13px; font-weight: 700; color: var(--text-muted);">جاري تحميل الحسابات...</span>
+          </div>
+
+          <!-- All Users List Container -->
+          <div id="adminAllUsersList" style="display:flex; flex-direction:column; gap:10px; margin-bottom: 25px;">
+            <!-- Populated dynamically via loadAllAdminUsers() -->
+          </div>
         </div>
-        <div id="adminOrdersList" class="orders-list"></div>
       </div>
     </section>
   </main>
