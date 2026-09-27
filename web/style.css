@@ -620,6 +620,139 @@ body {
   position: relative;
 }
 
+/* Custom Live Driver Marker & Radar Pulse Animation */
+.custom-driver-leaflet-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.custom-driver-container {
+  position: relative;
+  width: 52px;
+  height: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: pointer;
+  transform-origin: center bottom;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.custom-driver-container:hover {
+  transform: scale(1.1);
+  z-index: 9999;
+}
+
+.pulse-ring {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(234, 88, 12, 0.25);
+  box-shadow: 0 0 16px rgba(234, 88, 12, 0.6);
+  animation: radarWave 2s infinite ease-out;
+  pointer-events: none;
+}
+
+@keyframes radarWave {
+  0% {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.6);
+    opacity: 0;
+  }
+}
+
+.driver-marker-bubble {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  border: 3px solid #ffffff;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.6), 0 2px 6px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  transition: transform 0.3s ease;
+}
+
+.driver-scooter-icon {
+  font-size: 22px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.driver-heading-pointer {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: #ea580c;
+  filter: drop-shadow(0 1px 1px #fff);
+  pointer-events: none;
+  font-weight: 900;
+}
+
+.driver-live-tag {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.92);
+  color: #ffffff;
+  padding: 2px 7px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(234, 88, 12, 0.5);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 3;
+}
+
+.driver-live-indicator {
+  color: #22c55e;
+  font-size: 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.driver-speed-val {
+  color: #fb923c;
+  font-weight: 900;
+}
+
+/* Custom Leaflet Popup for Driver */
+.custom-driver-popup .leaflet-popup-content-wrapper {
+  background: var(--card-bg, #1e293b);
+  color: var(--text-main, #f8fafc);
+  border-radius: 12px;
+  padding: 4px;
+  border: 1px solid rgba(234, 88, 12, 0.3);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+}
+
+.custom-driver-popup .leaflet-popup-tip {
+  background: var(--card-bg, #1e293b);
+}
+
 .live-badge-overlay {
   position: absolute;
   top: 10px;

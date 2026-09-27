@@ -40,6 +40,9 @@ interface ProductDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProducts(products: List<ProductEntity>)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProduct(product: ProductEntity)
+
     @Query("UPDATE products SET isAvailable = :isAvailable WHERE id = :id")
     suspend fun updateProductAvailable(id: Long, isAvailable: Boolean)
 

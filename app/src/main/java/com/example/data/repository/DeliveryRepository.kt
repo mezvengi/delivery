@@ -1,5 +1,6 @@
 package com.example.data.repository
 
+import com.example.data.config.ApiConstants
 import com.example.data.local.CustomerOrderHistoryStorage
 import com.example.data.local.CustomerPastOrder
 import com.example.data.local.SourDeliveryDatabase
@@ -9,9 +10,12 @@ import com.example.data.local.entities.ProductEntity
 import com.example.data.local.entities.ShopEntity
 import com.example.data.models.OrderStatus
 import com.example.data.models.SourElGhozlaneConstants
+import com.example.data.network.AddProductRequest
 import com.example.data.network.CreateOrderRequest
-import com.example.data.network.OrderItemRequest
+import com.example.data.network.DriverLocationRequest
+import com.example.data.network.OrderItemDto
 import com.example.data.network.SoriApiClient
+import com.example.data.network.SoriWebSocketEvent
 import com.example.data.network.UpdateStatusRequest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -43,22 +47,54 @@ class DeliveryRepository(
         scope.launch(Dispatchers.IO) {
             seedInitialDataIfNeeded()
             syncWithRemoteServer()
+            initWebSocketListener()
+        }
+    }
+
+    private fun initWebSocketListener() {
+        try {
+            SoriApiClient.webSocketManager.connect()
+            scope.launch(Dispatchers.IO) {
+                SoriApiClient.webSocketManager.events.collect { event ->
+                    when (event) {
+                        is SoriWebSocketEvent.DriverLocationUpdated -> {
+                            driverDao.updateDriverLocation(event.driverId, event.lat, event.lng, 30.0)
+                        }
+                        is SoriWebSocketEvent.OrderStatusUpdated -> {
+                            val mappedStatus = when (event.status.uppercase()) {
+                                "CONFIRMED" -> OrderStatus.NEW.name
+                                "PREPARING" -> OrderStatus.PREPARING.name
+                                "OUT_FOR_DELIVERY" -> OrderStatus.ON_THE_WAY.name
+                                "DELIVERED" -> OrderStatus.DELIVERED.name
+                                else -> event.status
+                            }
+                            orderDao.updateOrderStatus(event.orderId, mappedStatus)
+                        }
+                        is SoriWebSocketEvent.ConnectionState -> {
+                            // Handled
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // Safe fallback
         }
     }
 
     private suspend fun syncWithRemoteServer() {
         try {
-            val remoteShops = SoriApiClient.apiService.getShops()
+            val response = SoriApiClient.apiService.getShops()
+            val remoteShops = response.shops ?: emptyList()
             if (remoteShops.isNotEmpty()) {
                 val entities = remoteShops.map { dto ->
                     ShopEntity(
                         id = dto.id,
                         name = dto.name,
                         category = dto.category,
-                        neighborhood = dto.neighborhood,
-                        address = dto.address_description ?: "سور الغزلان",
-                        lat = dto.lat ?: 36.1480,
-                        lon = dto.lon ?: 3.6900,
+                        neighborhood = dto.neighborhood ?: "وسط المدينة",
+                        address = dto.address ?: dto.address_description ?: "سور الغزلان",
+                        lat = dto.lat ?: ApiConstants.CENTER_LAT,
+                        lon = dto.lng ?: dto.lon ?: ApiConstants.CENTER_LNG,
                         phone = dto.phone ?: "+213550000000",
                         rating = "4.8",
                         deliveryTime = "20-30 دقيقة",
@@ -72,17 +108,18 @@ class DeliveryRepository(
         }
 
         try {
-            val remoteDrivers = SoriApiClient.apiService.getActiveDrivers()
+            val response = SoriApiClient.apiService.getOnlineDrivers()
+            val remoteDrivers = response.drivers ?: emptyList()
             if (remoteDrivers.isNotEmpty()) {
                 val driverEntities = remoteDrivers.mapIndexed { idx, dto ->
                     DriverEntity(
                         id = dto.id ?: dto.driver_id ?: (idx + 1).toLong(),
                         name = dto.driver_name ?: dto.name ?: "سائق التوصيل",
                         phone = dto.phone ?: "+213550000000",
-                        vehicleType = dto.vehicle_type ?: "دراجة نارية",
+                        vehicleType = dto.vehicle_type ?: "دراجة SYM 125",
                         isOnline = dto.is_online ?: true,
-                        lat = dto.lat ?: 36.1480,
-                        lon = dto.lon ?: 3.6900,
+                        lat = dto.lat ?: ApiConstants.CENTER_LAT,
+                        lon = dto.lng ?: dto.lon ?: ApiConstants.CENTER_LNG,
                         speed = 30.0,
                         rating = "4.8"
                     )
@@ -119,7 +156,8 @@ class DeliveryRepository(
         customerLat: Double,
         customerLon: Double,
         itemsSummary: String,
-        subtotal: Int
+        subtotal: Int,
+        orderItems: List<OrderItemDto> = emptyList()
     ): Long {
         val orderNumber = "SOUR-${Random.nextInt(1000, 9999)}"
         val order = OrderEntity(
@@ -140,8 +178,8 @@ class DeliveryRepository(
             status = OrderStatus.NEW.name,
             itemsSummary = itemsSummary,
             subtotal = subtotal,
-            deliveryFee = SourElGhozlaneConstants.FIXED_DELIVERY_FEE,
-            total = subtotal + SourElGhozlaneConstants.FIXED_DELIVERY_FEE
+            deliveryFee = ApiConstants.FIXED_DELIVERY_FEE,
+            total = subtotal + ApiConstants.FIXED_DELIVERY_FEE
         )
 
         val newOrderId = orderDao.insertOrder(order)
@@ -152,8 +190,8 @@ class DeliveryRepository(
             orderNumber = orderNumber,
             shopName = shop.name,
             itemsSummary = itemsSummary,
-            totalPrice = subtotal + SourElGhozlaneConstants.FIXED_DELIVERY_FEE,
-            deliveryFee = SourElGhozlaneConstants.FIXED_DELIVERY_FEE,
+            totalPrice = subtotal + ApiConstants.FIXED_DELIVERY_FEE,
+            deliveryFee = ApiConstants.FIXED_DELIVERY_FEE,
             neighborhood = neighborhood,
             driverName = driver?.name,
             status = "قيد التوصيل"
@@ -162,25 +200,29 @@ class DeliveryRepository(
         // Asynchronously sync with remote server https://sour.serveirc.com/api/orders
         scope.launch(Dispatchers.IO) {
             try {
+                val apiItems = if (orderItems.isNotEmpty()) {
+                    orderItems
+                } else {
+                    listOf(
+                        OrderItemDto(
+                            product_id = 1,
+                            quantity = 1,
+                            price_da = subtotal
+                        )
+                    )
+                }
                 SoriApiClient.apiService.createOrder(
                     CreateOrderRequest(
+                        shop_id = shop.id,
                         customer_name = customerName,
                         customer_phone = customerPhone,
-                        shop_id = shop.id,
-                        driver_id = driver?.id,
+                        delivery_address = addressDescription,
                         neighborhood = neighborhood,
-                        address_description = addressDescription,
+                        items = apiItems,
+                        driver_id = driver?.id,
+                        notes = "طلب عبر تطبيق SGdelivery - سور الغزلان (دفع عند الاستلام)",
                         customer_lat = customerLat,
-                        customer_lon = customerLon,
-                        items = listOf(
-                            OrderItemRequest(
-                                product_id = null,
-                                product_name = itemsSummary,
-                                quantity = 1,
-                                unit_price = subtotal
-                            )
-                        ),
-                        notes = "طلب عبر تطبيق سوري"
+                        customer_lon = customerLon
                     )
                 )
             } catch (e: Exception) {
@@ -198,9 +240,55 @@ class DeliveryRepository(
         orderDao.updateOrderStatus(orderId, status.name)
         scope.launch(Dispatchers.IO) {
             try {
-                SoriApiClient.apiService.updateOrderStatus(orderId, UpdateStatusRequest(status.name))
+                val apiStatusStr = when (status) {
+                    OrderStatus.NEW -> "CONFIRMED"
+                    OrderStatus.SHOP_ACCEPTED, OrderStatus.PREPARING -> "PREPARING"
+                    OrderStatus.READY_FOR_PICKUP, OrderStatus.ON_THE_WAY -> "OUT_FOR_DELIVERY"
+                    OrderStatus.DELIVERED -> "DELIVERED"
+                    OrderStatus.CANCELLED -> "CANCELLED"
+                }
+                SoriApiClient.apiService.updateOrderStatus(orderId, UpdateStatusRequest(apiStatusStr))
             } catch (e: Exception) {
                 // Room database is the primary source of truth
+            }
+        }
+    }
+
+    suspend fun broadcastDriverLocation(lat: Double, lng: Double) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                SoriApiClient.apiService.broadcastDriverLocation(DriverLocationRequest(lat = lat, lng = lng))
+            } catch (e: Exception) {
+                // Fallback
+            }
+        }
+    }
+
+    suspend fun addProduct(shopId: Long, name: String, description: String, priceDa: Int) {
+        val newProductId = System.currentTimeMillis()
+        productDao.insertProduct(
+            ProductEntity(
+                id = newProductId,
+                shopId = shopId,
+                name = name,
+                description = description,
+                price = priceDa,
+                category = "قائمة الطعام",
+                isAvailable = true
+            )
+        )
+        scope.launch(Dispatchers.IO) {
+            try {
+                SoriApiClient.apiService.addProduct(
+                    shopId = shopId,
+                    request = AddProductRequest(
+                        name = name,
+                        description = description,
+                        price_da = priceDa
+                    )
+                )
+            } catch (e: Exception) {
+                // Room database is primary
             }
         }
     }
@@ -262,7 +350,6 @@ class DeliveryRepository(
     }
 
     private suspend fun seedInitialDataIfNeeded() {
-        // Real data mode: Do not seed mock shops, products, or drivers.
-        // Data is populated by registered merchants, drivers, and orders.
+        // Real data mode: Data is populated from production backend and merchants/drivers.
     }
 }

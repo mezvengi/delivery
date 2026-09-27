@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,13 +30,18 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -198,6 +206,7 @@ fun LoginScreen(
                 RoleType.CUSTOMER -> "0550123456"
                 RoleType.DRIVER -> "0660123456"
                 RoleType.STORE -> "0770123456"
+                RoleType.ADMIN -> "0555000000"
             }
         )
     }
@@ -216,6 +225,9 @@ fun LoginScreen(
     var isOtpSent by remember { mutableStateOf(false) }
     var otpMessage by remember { mutableStateOf<String?>(null) }
     var otpError by remember { mutableStateOf<String?>(null) }
+    var whatsappUrl by remember { mutableStateOf<String?>(null) }
+    var telegramUrl by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
 
     Column(
         modifier = modifier
@@ -339,6 +351,41 @@ fun LoginScreen(
         } else {
             // OTP Mode
             if (isOtpSent) {
+                if (!whatsappUrl.isNullOrBlank() || !telegramUrl.isNullOrBlank()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (!whatsappUrl.isNullOrBlank()) {
+                            OutlinedButton(
+                                onClick = {
+                                    try {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(whatsappUrl)))
+                                    } catch (e: Exception) {}
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF25D366))
+                            ) {
+                                Text("واتساب (WhatsApp)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        if (!telegramUrl.isNullOrBlank()) {
+                            OutlinedButton(
+                                onClick = {
+                                    try {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(telegramUrl)))
+                                    } catch (e: Exception) {}
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF0088CC))
+                            ) {
+                                Text("تيليجرام (Telegram)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+
                 AppTextField(
                     value = otpCode,
                     onValueChange = {
@@ -346,7 +393,7 @@ fun LoginScreen(
                         otpError = null
                         generalError = null
                     },
-                    label = "رمز التحقق المكون من 4 أرقام",
+                    label = "رمز التحقق المكون من 6 أرقام",
                     leadingIcon = Icons.Default.Lock,
                     keyboardType = KeyboardType.Number,
                     errorMessage = otpError
@@ -369,13 +416,15 @@ fun LoginScreen(
                         } else {
                             isLoading = true
                             coroutineScope.launch {
-                                val res = authRepository.requestOtp(phone)
+                                val res = authRepository.sendOtp(phone)
                                 isLoading = false
                                 res.fold(
-                                    onSuccess = { code ->
+                                    onSuccess = { resp ->
                                         isOtpSent = true
-                                        otpCode = code
-                                        otpMessage = "تم إرسال الرمز بنجاح. رمز الاختبار: $code"
+                                        otpCode = resp.code ?: ""
+                                        whatsappUrl = resp.whatsapp_url
+                                        telegramUrl = resp.telegram_url
+                                        otpMessage = "تم إنشاء رمز التحقق: ${resp.code ?: ""}"
                                     },
                                     onFailure = {
                                         generalError = "تعذر إرسال رمز التحقق"
@@ -387,7 +436,7 @@ fun LoginScreen(
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth().height(48.dp)
                 ) {
-                    Text("إرسال رمز التحقق عبر الرسائل القصيرة", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("إرسال رمز التحقق (WhatsApp / Telegram)", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -580,6 +629,14 @@ fun RegisterScreen(
     var passwordError by remember { mutableStateOf<String?>(null) }
     var generalError by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    var isOtpSent by remember { mutableStateOf(false) }
+    var otpCode by remember { mutableStateOf("") }
+    var otpError by remember { mutableStateOf<String?>(null) }
+    var whatsappUrl by remember { mutableStateOf<String?>(null) }
+    var telegramUrl by remember { mutableStateOf<String?>(null) }
+    var otpMessage by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = modifier
@@ -787,6 +844,21 @@ fun RegisterScreen(
                     )
                 }
             }
+
+            RoleType.ADMIN -> {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.padding(vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "ملاحظة: حسابات إدارة منصة سور الغزلان مخصصة لمسؤولي البلدية والنظام.",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(10.dp)
+                    )
+                }
+            }
         }
 
         AnimatedVisibility(visible = generalError != null) {
@@ -808,78 +880,157 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        AppButton(
-            text = "تأكيد إنشاء الحساب",
-            isLoading = isLoading,
-            onClick = {
-                var hasError = false
-                if (role != RoleType.STORE && name.isBlank()) {
-                    nameError = "يرجى كتابة الاسم"
-                    hasError = true
+        if (isOtpSent) {
+            // Step 2 of Registration: Verify OTP received via WhatsApp/Telegram
+            if (!whatsappUrl.isNullOrBlank() || !telegramUrl.isNullOrBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (!whatsappUrl.isNullOrBlank()) {
+                        OutlinedButton(
+                            onClick = {
+                                try {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(whatsappUrl)))
+                                } catch (e: Exception) {}
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF25D366))
+                        ) {
+                            Text("فتح واتساب (WhatsApp)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    if (!telegramUrl.isNullOrBlank()) {
+                        OutlinedButton(
+                            onClick = {
+                                try {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(telegramUrl)))
+                                } catch (e: Exception) {}
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF0088CC))
+                        ) {
+                            Text("فتح تيليجرام (Telegram)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
-                if (role == RoleType.STORE && storeName.isBlank()) {
-                    nameError = "يرجى كتابة اسم المتجر"
-                    hasError = true
-                }
-                if (!AuthRepository.isValidAlgerianPhone(phone)) {
-                    phoneError = "يرجى إدخال رقم هاتف جزائري صحيح (مثل: 0550123456)"
-                    hasError = true
-                }
-                if (!AuthRepository.isValidPassword(password)) {
-                    passwordError = "كلمة السر يجب أن لا تقل عن 6 أحرف"
-                    hasError = true
-                }
+                Spacer(modifier = Modifier.height(10.dp))
+            }
 
-                if (!hasError) {
+            AppTextField(
+                value = otpCode,
+                onValueChange = {
+                    otpCode = it
+                    otpError = null
+                    generalError = null
+                },
+                label = "رمز التحقق المكون من 6 أرقام",
+                leadingIcon = Icons.Default.Lock,
+                keyboardType = KeyboardType.Number,
+                errorMessage = otpError
+            )
+
+            if (otpMessage != null) {
+                Text(
+                    text = otpMessage ?: "",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(start = 8.dp, top = 4.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            AppButton(
+                text = "تأكيد والتحقق من الحساب (Verify OTP)",
+                isLoading = isLoading,
+                onClick = {
+                    if (otpCode.length < 4) {
+                        otpError = "يرجى إدخال رمز التحقق المكون من 6 أرقام"
+                        return@AppButton
+                    }
                     isLoading = true
                     generalError = null
                     coroutineScope.launch {
-                        val result = when (role) {
-                            RoleType.CUSTOMER -> {
-                                authRepository.registerCustomer(
-                                    name = name,
-                                    phone = phone,
-                                    pass = password,
-                                    address = address,
-                                    neighborhood = selectedNeighborhood
-                                )
-                            }
-                            RoleType.DRIVER -> {
-                                authRepository.registerDriver(
-                                    name = name,
-                                    phone = phone,
-                                    pass = password,
-                                    vehicleType = vehicleType,
-                                    plateNumber = plateNumber,
-                                    idDocumentAttached = idDocumentAttached
-                                )
-                            }
-                            RoleType.STORE -> {
-                                authRepository.registerStore(
-                                    storeName = storeName,
-                                    ownerName = storeOwner,
-                                    phone = phone,
-                                    pass = password,
-                                    address = address,
-                                    storeType = storeType,
-                                    lat = SourElGhozlaneConstants.CENTER_LAT,
-                                    lon = SourElGhozlaneConstants.CENTER_LON
-                                )
-                            }
-                        }
+                        val result = authRepository.verifyOtp(
+                            phone = phone,
+                            code = otpCode,
+                            fullName = if (role == RoleType.STORE) storeName else name,
+                            role = role,
+                            password = password,
+                            address = address,
+                            vehicleType = vehicleType,
+                            licensePlate = plateNumber,
+                            storeCategory = storeType
+                        )
                         isLoading = false
                         result.fold(
                             onSuccess = { user ->
                                 onRegisterSuccess(user)
                             },
                             onFailure = { err ->
-                                generalError = err.message ?: "فشل إنشاء الحساب"
+                                generalError = err.message ?: "فشل التحقق من الرمز"
                             }
                         )
                     }
                 }
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedButton(
+                onClick = { isOtpSent = false },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("تعديل البيانات أو إعادة طلب الرمز", fontSize = 12.sp)
             }
-        )
+        } else {
+            // Step 1: Send OTP via WhatsApp / Telegram
+            AppButton(
+                text = "إرسال رمز التحقق عبر واتساب / تيليجرام",
+                isLoading = isLoading,
+                onClick = {
+                    var hasError = false
+                    if (role != RoleType.STORE && name.isBlank()) {
+                        nameError = "يرجى كتابة الاسم"
+                        hasError = true
+                    }
+                    if (role == RoleType.STORE && storeName.isBlank()) {
+                        nameError = "يرجى كتابة اسم المتجر"
+                        hasError = true
+                    }
+                    if (!AuthRepository.isValidAlgerianPhone(phone)) {
+                        phoneError = "يرجى إدخال رقم هاتف جزائري صحيح (مثل: 0550123456)"
+                        hasError = true
+                    }
+                    if (!AuthRepository.isValidPassword(password)) {
+                        passwordError = "كلمة السر يجب أن لا تقل عن 6 أحرف"
+                        hasError = true
+                    }
+
+                    if (!hasError) {
+                        isLoading = true
+                        generalError = null
+                        coroutineScope.launch {
+                            val res = authRepository.sendOtp(phone)
+                            isLoading = false
+                            res.fold(
+                                onSuccess = { resp ->
+                                    isOtpSent = true
+                                    otpCode = resp.code ?: ""
+                                    whatsappUrl = resp.whatsapp_url
+                                    telegramUrl = resp.telegram_url
+                                    otpMessage = resp.message ?: "تم إرسال رمز التحقق (${resp.code ?: ""})"
+                                },
+                                onFailure = { err ->
+                                    generalError = err.message ?: "تعذر إرسال رمز التحقق"
+                                }
+                            )
+                        }
+                    }
+                }
+            )
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -908,88 +1059,449 @@ fun RegisterScreen(
 @Composable
 fun PendingApprovalScreen(
     user: UserAccount,
+    authRepository: AuthRepository? = null,
     onActivateNowForTesting: () -> Unit,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    // Server code generation state
+    var isRequestingCode by remember { mutableStateOf(false) }
+    var isCodeGenerated by remember { mutableStateOf(false) }
+    var serverGeneratedCode by remember { mutableStateOf<String?>(null) }
+    var whatsappUrl by remember { mutableStateOf<String?>(null) }
+    var telegramUrl by remember { mutableStateOf<String?>(null) }
+    var serverMessage by remember { mutableStateOf<String?>(null) }
+
+    // Activation code input state
+    var inputCode by remember { mutableStateOf("") }
+    var isActivating by remember { mutableStateOf(false) }
+    var codeError by remember { mutableStateOf<String?>(null) }
+    var activationError by remember { mutableStateOf<String?>(null) }
+    var activationSuccess by remember { mutableStateOf<String?>(null) }
+
+    // Polling / admin status check
+    var isCheckingStatus by remember { mutableStateOf(false) }
+    var checkStatusMessage by remember { mutableStateOf<String?>(null) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Surface(
             shape = CircleShape,
             color = MaterialTheme.colorScheme.primaryContainer,
-            modifier = Modifier.size(80.dp)
+            modifier = Modifier.size(76.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
-                    imageVector = Icons.Default.HourglassTop,
-                    contentDescription = "قيد الانتظار",
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = "كود التفعيل",
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(44.dp)
+                    modifier = Modifier.size(38.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         Text(
-            text = "بانتظار موافقة الإدارة",
+            text = "تفعيل حساب ${user.role.titleArabic}",
             fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.onSurface
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
-
         Text(
-            text = "مرحباً بك ${user.name} في تطبيق سوري.\nتم استلام طلب تسجيل حسابك كـ (${user.role.titleArabic}) وهو حالياً قيد المراجعة والتحقق من طرف مسؤولي بلدية سور الغزلان.",
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            lineHeight = 22.sp
+            text = "توليد كود التفعيل من السيرفر والإرسال عبر تيليجرام أو واتساب",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
+        // Account Details Card
         Card(
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(14.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "بيانات الحساب:",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "صاحب الحساب: ${user.name}",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = user.role.titleArabic,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(6.dp))
-                Text(text = "رقم الهاتف: ${user.phone}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(text = "الدور: ${user.role.titleArabic}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(text = "الحالة: في انتظار الاعتماد", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                Text(
+                    text = "رقم الهاتف المسجل: ${user.phone}",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "الحالة: بانتظار إدخال كود التفعيل (Pending)",
+                    fontSize = 12.sp,
+                    color = Color(0xFFD97706),
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Instant approval for testing mode
-        AppButton(
-            text = "تفعيل الحساب فوراً (وضع المعاينة والاختبار)",
-            onClick = onActivateNowForTesting
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        OutlinedButton(
-            onClick = onLogout,
-            shape = RoundedCornerShape(12.dp),
+        // Step 1: Server Code Generator
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("تسجيل الخروج والعودة", fontWeight = FontWeight.Bold)
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(26.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("1", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "توليد كود التفعيل من السيرفر",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "يقوم السيرفر بتوليد كود تحقق مشفر خاص بحسابك ويرسله عبر تيليجرام أو واتساب لرقمك (${user.phone}).",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                AppButton(
+                    text = if (isCodeGenerated) "إعادة توليد كود جديد من السيرفر 🔄" else "طلب كود التفعيل من السيرفر 📲",
+                    isLoading = isRequestingCode,
+                    onClick = {
+                        if (authRepository == null) return@AppButton
+                        isRequestingCode = true
+                        activationError = null
+                        coroutineScope.launch {
+                            val result = authRepository.requestActivationCode(user.phone)
+                            isRequestingCode = false
+                            result.fold(
+                                onSuccess = { resp ->
+                                    isCodeGenerated = true
+                                    serverGeneratedCode = resp.code
+                                    whatsappUrl = resp.whatsapp_url
+                                    telegramUrl = resp.telegram_url
+                                    serverMessage = resp.message ?: "تم توليد كود التفعيل من السيرفر بنجاح!"
+                                },
+                                onFailure = { err ->
+                                    activationError = err.message ?: "فشل طلب كود التفعيل من السيرفر"
+                                }
+                            )
+                        }
+                    }
+                )
+
+                if (isCodeGenerated) {
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF22C55E).copy(alpha = 0.12f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = Color(0xFF15803D),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = serverMessage ?: "تم توليد كود التفعيل من السيرفر بنجاح!",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF15803D)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Text(
+                                text = "اضغط لفتح التطبيق واستلام الكود المسجل:",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (!whatsappUrl.isNullOrBlank()) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            try {
+                                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(whatsappUrl)))
+                                            } catch (e: Exception) {}
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF25D366))
+                                    ) {
+                                        Text("فتح واتساب 🟢", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+
+                                if (!telegramUrl.isNullOrBlank()) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            try {
+                                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(telegramUrl)))
+                                            } catch (e: Exception) {}
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF0088CC))
+                                    ) {
+                                        Text("فتح تيليجرام 🔵", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+
+                            if (!serverGeneratedCode.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            inputCode = serverGeneratedCode ?: ""
+                                            codeError = null
+                                        }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = "الكود الصادر من السيرفر: ${serverGeneratedCode}",
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+                                            text = "اضغط للملء التلقائي ✍️",
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.outline
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Step 2: Input Activation Code
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(26.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("2", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "إدخال كود التفعيل وتأكيد الحساب",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                AppTextField(
+                    value = inputCode,
+                    onValueChange = {
+                        inputCode = it
+                        codeError = null
+                        activationError = null
+                    },
+                    label = "أدخل كود التفعيل (6 أرقام)",
+                    leadingIcon = Icons.Default.Lock,
+                    keyboardType = KeyboardType.Number,
+                    errorMessage = codeError
+                )
+
+                if (activationError != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = activationError ?: "",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                if (activationSuccess != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = activationSuccess ?: "",
+                        fontSize = 12.sp,
+                        color = Color(0xFF15803D),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                AppButton(
+                    text = "تأكيد الكود وتفعيل الحساب فوراً 🚀",
+                    isLoading = isActivating,
+                    onClick = {
+                        if (inputCode.trim().length < 4) {
+                            codeError = "يرجى كتابة كود التفعيل بشكل صحيح"
+                            return@AppButton
+                        }
+                        if (authRepository == null) return@AppButton
+                        isActivating = true
+                        activationError = null
+                        coroutineScope.launch {
+                            val result = authRepository.activateWithCode(user.phone, inputCode)
+                            isActivating = false
+                            result.fold(
+                                onSuccess = {
+                                    activationSuccess = "تهانينا! تم تفعيل الحساب بنجاح، جاري فتح لوحة التحكم..."
+                                },
+                                onFailure = { err ->
+                                    activationError = err.message ?: "كود التفعيل غير صحيح، يرجى إعادة المحاولة"
+                                }
+                            )
+                        }
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Secondary / Alternative Options
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilledTonalButton(
+                onClick = {
+                    if (authRepository == null) return@FilledTonalButton
+                    isCheckingStatus = true
+                    checkStatusMessage = null
+                    coroutineScope.launch {
+                        val result = authRepository.checkAuthStatus()
+                        isCheckingStatus = false
+                        result.onSuccess { updated ->
+                            if (updated.status == AccountStatus.APPROVED) {
+                                checkStatusMessage = "تم التحقق وتفعيل الحساب بنجاح!"
+                            } else {
+                                checkStatusMessage = "الحساب ما زال بانتظار إدخال كود التفعيل (pending)."
+                            }
+                        }.onFailure {
+                            checkStatusMessage = "تعذر الاتصال بالخادم للتحقق من الحالة."
+                        }
+                    }
+                },
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (isCheckingStatus) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text("التحقق من حالة الحساب في الخادم (GET /api/auth/me)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+
+            if (checkStatusMessage != null) {
+                Text(
+                    text = checkStatusMessage ?: "",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+                )
+            }
+
+            FilledTonalButton(
+                onClick = onActivateNowForTesting,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("تفعيل تجريبي فوري (وضع الاختبار والتطوير)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+
+            OutlinedButton(
+                onClick = onLogout,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("تسجيل الخروج والعودة", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
         }
     }
 }

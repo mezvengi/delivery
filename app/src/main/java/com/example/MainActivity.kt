@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material3.Icon
@@ -170,6 +171,7 @@ fun SGdeliveryApp(
     if (user.status == AccountStatus.PENDING_APPROVAL) {
         PendingApprovalScreen(
             user = user,
+            authRepository = authRepository,
             onActivateNowForTesting = {
                 authRepository.approveAccount(user.id)
             },
@@ -188,6 +190,7 @@ fun SGdeliveryApp(
                 RoleType.CUSTOMER -> UserRole.CUSTOMER
                 RoleType.DRIVER -> UserRole.DRIVER
                 RoleType.STORE -> UserRole.SHOP
+                RoleType.ADMIN -> UserRole.ADMIN
             }
         )
     }
@@ -239,6 +242,7 @@ fun SGdeliveryApp(
                                             RoleType.CUSTOMER -> Icons.Default.Person
                                             RoleType.DRIVER -> Icons.Default.TwoWheeler
                                             RoleType.STORE -> Icons.Default.Storefront
+                                            RoleType.ADMIN -> Icons.Default.Settings
                                         },
                                         contentDescription = ApiConstants.APP_NAME,
                                         tint = MaterialTheme.colorScheme.primary,
@@ -473,7 +477,8 @@ fun SGdeliveryApp(
                     AdminDashboardScreen(
                         shops = shops,
                         drivers = drivers,
-                        orders = orders
+                        orders = orders,
+                        authRepository = authRepository
                     )
                 }
             }

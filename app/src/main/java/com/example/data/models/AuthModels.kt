@@ -3,7 +3,8 @@ package com.example.data.models
 enum class RoleType(val titleArabic: String, val descriptionArabic: String) {
     CUSTOMER("زبون", "طلب وجبات وتوصيلها إلى باب منزلك"),
     DRIVER("سائق", "توصيل الطلبات وتحقيق دخل يومي إضافي"),
-    STORE("متجر", "عرض منتجات متجرك واستقبال طلبات الزبائن")
+    STORE("متجر", "عرض منتجات متجرك واستقبال طلبات الزبائن"),
+    ADMIN("مسؤول الإدارة", "إدارة المنصة والموافقة على المتاجر والسائقين")
 }
 
 enum class AccountStatus {

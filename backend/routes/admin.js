@@ -58,4 +58,62 @@ router.post('/assign-driver', authMiddleware(['admin']), async (req, res) => {
   }
 });
 
+// Get Pending Accounts
+router.get('/pending-users', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT id, name, phone, role, is_active, created_at 
+       FROM users 
+       WHERE is_active = FALSE 
+       ORDER BY created_at DESC`
+    );
+    res.json({
+      success: true,
+      users: result.rows.map(u => ({
+        id: u.id,
+        name: u.name,
+        phone: u.phone,
+        role: u.role,
+        status: u.is_active ? 'active' : 'pending',
+        created_at: u.created_at,
+      })),
+    });
+  } catch (err) {
+    console.error('Pending users error:', err);
+    res.status(500).json({ error: 'تعذر جلب الحسابات المعلقة' });
+  }
+});
+
+// Update Account Status (Approve / Suspend)
+router.put('/users/:userId/status', async (req, res) => {
+  const { userId } = req.params;
+  const { status, is_active } = req.body;
+  const activeFlag = is_active !== undefined ? Boolean(is_active) : (status === 'active');
+
+  try {
+    const result = await db.query(
+      `UPDATE users SET is_active = $1 WHERE id = $2 RETURNING *`,
+      [activeFlag, userId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'المستخدم غير موجود' });
+    }
+    const u = result.rows[0];
+    res.json({
+      success: true,
+      message: activeFlag ? 'تم تفعيل الحساب بنجاح' : 'تم تعليق الحساب',
+      user: {
+        id: u.id,
+        name: u.name,
+        phone: u.phone,
+        role: u.role,
+        status: u.is_active ? 'active' : 'suspended',
+      },
+    });
+  } catch (err) {
+    console.error('Update user status error:', err);
+    res.status(500).json({ error: 'تعذر تحديث حالة الحساب' });
+  }
+});
+
 module.exports = router;

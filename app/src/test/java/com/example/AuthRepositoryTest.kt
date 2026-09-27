@@ -59,7 +59,7 @@ class AuthRepositoryTest {
             address = "حي 114 مسكن",
             neighborhood = "حي 114 مسكن"
         )
-        assertTrue(result.isSuccess)
+        assertTrue("Customer registration failed: ${result.exceptionOrNull()?.message}", result.isSuccess)
         val user = result.getOrNull()
         assertNotNull(user)
         assertEquals(RoleType.CUSTOMER, user?.role)
@@ -76,7 +76,7 @@ class AuthRepositoryTest {
             plateNumber = "54321-126-10",
             idDocumentAttached = true
         )
-        assertTrue(result.isSuccess)
+        assertTrue("Driver registration failed: ${result.exceptionOrNull()?.message}", result.isSuccess)
         val driver = result.getOrNull()
         assertNotNull(driver)
         assertEquals(RoleType.DRIVER, driver?.role)
@@ -100,7 +100,7 @@ class AuthRepositoryTest {
             lat = 36.1480,
             lon = 3.6900
         )
-        assertTrue(result.isSuccess)
+        assertTrue("Store registration failed: ${result.exceptionOrNull()?.message}", result.isSuccess)
         val store = result.getOrNull()
         assertNotNull(store)
         assertEquals(RoleType.STORE, store?.role)

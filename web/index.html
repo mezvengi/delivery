@@ -65,9 +65,34 @@
         <p id="pendingRoleDesc">
           مرحباً بك! تم التحقق من رقم هاتفك بنجاح عبر (واتساب / تلغرام). طلب انضمامك قيد المراجعة حالياً من قبل إدارة SGdelivery في سور الغزلان للتأكد من الوثائق وتفعيل نشاطك على الخريطة.
         </p>
+        <!-- Server Activation Code Section -->
+        <div style="background: rgba(255,255,255,0.06); border: 1px dashed var(--border); border-radius: 10px; padding: 12px; margin: 12px 0;">
+          <div style="font-weight: 700; font-size: 13px; margin-bottom: 6px; color: var(--primary);">
+            🔑 نظام التفعيل بكود السيرفر (تيليجرام / واتساب):
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+            <button type="button" class="btn btn-sm btn-primary" onclick="requestServerActivationCodeWeb()" id="btnReqCodeWeb">
+              طلب كود التفعيل من السيرفر 📲
+            </button>
+            <a id="pendingWhatsAppBtn" href="#" target="_blank" class="btn btn-sm hidden" style="background:#25D366; color:white; text-decoration:none;">
+              فتح واتساب 🟢
+            </a>
+            <a id="pendingTelegramBtn" href="#" target="_blank" class="btn btn-sm hidden" style="background:#0088CC; color:white; text-decoration:none;">
+              فتح تيليجرام 🔵
+            </a>
+          </div>
+          <div id="webCodeNotice" style="font-size: 12px; color: #10B981; font-weight: bold; margin-bottom: 8px; display: none;"></div>
+          <div style="display: flex; gap: 8px; align-items: center; max-width: 400px;">
+            <input type="text" id="webActivationCodeInput" class="form-control" placeholder="أدخل كود التفعيل (6 أرقام)" maxlength="6" style="padding: 6px 10px; font-size: 13px;">
+            <button type="button" class="btn btn-sm btn-primary" onclick="submitActivationCodeWeb()" style="white-space: nowrap;">
+              تفعيل الحساب الآن ✅
+            </button>
+          </div>
+        </div>
+
         <div class="pending-actions">
-          <button class="btn btn-sm btn-primary" onclick="checkAccountApprovalStatus()">
-            فحص حالة التفعيل 🔄
+          <button class="btn btn-sm btn-outline" onclick="checkAccountApprovalStatus()">
+            فحص حالة التفعيل (GET /me) 🔄
           </button>
           <a id="pendingWhatsAppContact" href="https://wa.me/213555000000?text=مرحباً%20إدارة%20SGdelivery%D8%8C%20أرجو%20تفعيل%20حسابي" target="_blank" class="btn btn-sm" style="background:#25D366; color:white; text-decoration:none; display:inline-flex; align-items:center; gap:5px;">
             <span>💬</span> تواصل مع الإدارة عبر واتساب
@@ -205,43 +230,97 @@
 
     <!-- VIEW 4: ADMIN VIEW -->
     <section id="adminView" class="view-section hidden">
-      <div class="stats-row">
-        <div class="stat-card">
-          <span class="stat-val" id="adminTotalOrders">12</span>
-          <span class="stat-lbl">طلبات اليوم</span>
+      <!-- Admin In-Page Login Gate (Shown when not authenticated as admin) -->
+      <div id="adminLoginGate" class="admin-login-card" style="max-width: 480px; margin: 20px auto; background: var(--card-bg); border: 2px solid var(--primary); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <div style="font-size: 40px; margin-bottom: 8px;">👑</div>
+          <h2 style="font-size: 20px; font-weight: 800; color: var(--text-main); margin-bottom: 6px;">بوابة تسجيل دخول الإدارة</h2>
+          <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5;">
+            يرجى تسجيل الدخول بحساب مسؤول المنصة للوصول إلى لوحة التحكم ومراقبة السائقين وإدارة الطلبات والحسابات.
+          </p>
         </div>
-        <div class="stat-card highlight">
-          <span class="stat-val" id="adminRevenue">14,200 دج</span>
-          <span class="stat-lbl">مجموع المبيعات</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-val" id="adminActiveDrivers">2</span>
-          <span class="stat-lbl">سائقين متصلين 🛵</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-val" id="adminActiveShops">4</span>
-          <span class="stat-lbl">متاجر مفتوحة</span>
+
+        <div id="inPageAdminAlert" class="auth-alert hidden" style="margin-bottom: 16px;"></div>
+
+        <form id="inPageAdminLoginForm" onsubmit="handleInPageAdminLogin(event)">
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label style="font-weight: 700; font-size: 13px; display: block; margin-bottom: 6px;">رقم هاتف الإدارة (الجزائر):</label>
+            <input type="tel" id="inPageAdminPhone" class="form-control" value="0555000000" placeholder="0555000000" required style="font-size: 15px; font-weight: 700; direction: ltr; text-align: right;">
+          </div>
+
+          <div class="form-group" style="margin-bottom: 18px;">
+            <label style="font-weight: 700; font-size: 13px; display: block; margin-bottom: 6px;">كلمة المرور:</label>
+            <input type="password" id="inPageAdminPassword" class="form-control" value="admin123" placeholder="كلمة المرور" required style="font-size: 15px;">
+          </div>
+
+          <button type="submit" id="btnInPageAdminSubmit" class="btn btn-primary btn-block" style="font-size: 15px; font-weight: 800; padding: 12px; margin-bottom: 10px;">
+            دخول إلى لوحة التحكم ➔
+          </button>
+        </form>
+
+        <div style="margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border); text-align: center;">
+          <button type="button" class="btn btn-block" onclick="oneClickAdminLogin()" style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: white; font-weight: 800; font-size: 14px; padding: 10px; border: none; border-radius: 8px; cursor: pointer;">
+            ⚡ دخول تجريبي فوري بنقرة واحدة (One-Click Admin)
+          </button>
+          <div style="margin-top: 10px; font-size: 12px; color: var(--text-muted); background: var(--card-subtle); padding: 8px; border-radius: 8px;">
+            بيانات الدخول الافتراضية: <strong>0555000000</strong> / <strong>admin123</strong>
+          </div>
         </div>
       </div>
 
-      <div class="geofence-card">
-        <h4>النطاق الجغرافي المعتمد (Geofence):</h4>
-        <p>📍 مركز البلدية: <strong>36.1480° N, 3.6900° E</strong> (نصف القطر: 8 كم - بلدية سور الغزلان)</p>
-      </div>
+      <!-- Admin Dashboard Content (Shown when authenticated as admin) -->
+      <div id="adminDashboardContent" class="hidden">
+        <div style="background: var(--card-subtle); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 24px;">👑</span>
+            <div>
+              <strong style="font-size: 14px; color: var(--text-main);" id="adminProfileName">مسؤول المنصة (الإدارة المركزية)</strong>
+              <div style="font-size: 12px; color: #10B981; font-weight: 700;">● متصل الآن بصلاحيات كاملة</div>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-outline" onclick="logoutAdminSession()" style="font-size: 12px;">
+            تبديل الحساب / خروج 🚪
+          </button>
+        </div>
 
-      <!-- Pending Accounts Approval Section -->
-      <div class="section-title" style="display:flex; justify-content:space-between; align-items:center; margin-top:24px;">
-        <h3>🔔 طلبات الحسابات بانتظار تفعيل الإدارة</h3>
-        <button class="btn btn-sm btn-outline" onclick="loadPendingUsers()">تحديث الطلبات 🔄</button>
-      </div>
-      <div id="adminPendingUsersList" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
-        <!-- Populated dynamically -->
-      </div>
+        <div class="stats-row">
+          <div class="stat-card">
+            <span class="stat-val" id="adminTotalOrders">12</span>
+            <span class="stat-lbl">طلبات اليوم</span>
+          </div>
+          <div class="stat-card highlight">
+            <span class="stat-val" id="adminRevenue">14,200 دج</span>
+            <span class="stat-lbl">مجموع المبيعات</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-val" id="adminActiveDrivers">2</span>
+            <span class="stat-lbl">سائقين متصلين 🛵</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-val" id="adminActiveShops">4</span>
+            <span class="stat-lbl">متاجر مفتوحة</span>
+          </div>
+        </div>
 
-      <div class="section-title">
-        <h3>سجل كافة العمليات المباشرة</h3>
+        <div class="geofence-card">
+          <h4>النطاق الجغرافي المعتمد (Geofence):</h4>
+          <p>📍 مركز البلدية: <strong>36.1480° N, 3.6900° E</strong> (نصف القطر: 8 كم - بلدية سور الغزلان)</p>
+        </div>
+
+        <!-- Pending Accounts Approval Section -->
+        <div class="section-title" style="display:flex; justify-content:space-between; align-items:center; margin-top:24px;">
+          <h3>🔔 طلبات الحسابات بانتظار تفعيل الإدارة</h3>
+          <button class="btn btn-sm btn-outline" onclick="loadPendingUsers()">تحديث الطلبات 🔄</button>
+        </div>
+        <div id="adminPendingUsersList" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
+          <!-- Populated dynamically -->
+        </div>
+
+        <div class="section-title">
+          <h3>سجل كافة العمليات المباشرة</h3>
+        </div>
+        <div id="adminOrdersList" class="orders-list"></div>
       </div>
-      <div id="adminOrdersList" class="orders-list"></div>
     </section>
   </main>
 
@@ -427,7 +506,8 @@
   <!-- MODAL: AUTHENTICATION (LOGIN & REGISTRATION) -->
   <div id="authModal" class="modal-backdrop hidden">
     <div class="modal-content auth-modal-content">
-      <div class="auth-header">
+      <div class="auth-header" style="position: relative;">
+        <button type="button" class="close-btn" onclick="closeAuthModalGuest()" style="position: absolute; left: 0; top: 0;" title="إغلاق">✕</button>
         <div class="auth-logo-badge">🛵</div>
         <h2>تطبيق SGdelivery</h2>
         <p>المنصة الموحدة لتوصيل الطلبات - سور الغزلان</p>

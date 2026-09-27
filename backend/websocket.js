@@ -89,6 +89,8 @@ function broadcastLocationUpdate(locationData) {
   for (const client of clients) {
     if (client.readyState === 1) { // OPEN
       if (
+        !client.subscriptions ||
+        client.subscriptions.size === 0 ||
         client.subscriptions.has('drivers_active') ||
         (locationData.orderId && client.subscriptions.has(`order_${locationData.orderId}`))
       ) {

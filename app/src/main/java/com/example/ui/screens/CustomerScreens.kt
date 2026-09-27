@@ -71,6 +71,7 @@ import com.example.data.local.entities.ProductEntity
 import com.example.data.local.entities.ShopEntity
 import com.example.data.models.OrderStatus
 import com.example.data.models.SourElGhozlaneConstants
+import com.example.data.network.OrderItemDto
 import com.example.data.repository.DeliveryRepository
 import com.example.ui.components.OrderStatusStepper
 import com.example.ui.components.SourElGhozlaneMapCanvas
@@ -776,6 +777,16 @@ fun CustomerShopDetailScreen(
                             .filter { (cart[it.id] ?: 0) > 0 }
                             .joinToString("، ") { "${cart[it.id]}x ${it.name}" }
 
+                        val orderItemsList = products
+                            .filter { (cart[it.id] ?: 0) > 0 }
+                            .map {
+                                OrderItemDto(
+                                    product_id = it.id,
+                                    quantity = cart[it.id] ?: 1,
+                                    price_da = it.price
+                                )
+                            }
+
                         val nCoord = SourElGhozlaneConstants.NEIGHBORHOODS.find { it.nameArabic == neighborhood }
                         val custLat = nCoord?.lat ?: SourElGhozlaneConstants.CENTER_LAT
                         val custLon = nCoord?.lon ?: SourElGhozlaneConstants.CENTER_LON
@@ -790,7 +801,8 @@ fun CustomerShopDetailScreen(
                             customerLat = custLat,
                             customerLon = custLon,
                             itemsSummary = itemsSummary,
-                            subtotal = subtotal
+                            subtotal = subtotal,
+                            orderItems = orderItemsList
                         )
 
                         showDriverModal = false
