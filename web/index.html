@@ -32,8 +32,8 @@
 
         <!-- User Profile / Login Button -->
         <div id="authNavContainer">
-          <button id="loginNavBtn" class="btn btn-sm btn-primary" onclick="openAuthModal('login')">
-            🔑 تسجيل الدخول
+          <button id="loginNavBtn" class="btn btn-sm btn-primary" onclick="showAuthLandingView()">
+            🔑 تسجيل الدخول / حساب جديد
           </button>
           <div id="userProfileBadge" class="user-profile-badge hidden">
             <span id="userNameLabel">👤 حسابي</span>
@@ -41,14 +41,13 @@
           </div>
         </div>
 
-        <!-- Role Switcher -->
-        <div class="role-selector">
+        <!-- Role Switcher (Hidden when not logged in, Admin hidden from regular users) -->
+        <div class="role-selector" id="roleSelectorContainer" style="display: none;">
           <label for="roleSelect">الدور:</label>
           <select id="roleSelect" onchange="switchRole(this.value)">
             <option value="customer">الزبون (تصفح وطلب)</option>
             <option value="shop">المتجر (استقبال وتحضير)</option>
             <option value="driver">السائق (توصيل وبث GPS)</option>
-            <option value="admin">الإدارة (مراقبة وتوزيع)</option>
           </select>
         </div>
       </div>
@@ -57,6 +56,147 @@
 
   <!-- Main App Container -->
   <main class="app-body">
+    <!-- VIEW 0: FIRST-TIME AUTHENTICATION GATEWAY (Shown when unauthenticated) -->
+    <section id="authLandingView" class="view-section active">
+      <div class="auth-landing-card">
+        <div class="auth-header">
+          <div class="auth-logo-badge">🛵</div>
+          <h2>تطبيق SGdelivery</h2>
+          <p>المنصة الموحدة لتوصيل الطلبات - بلدية سور الغزلان</p>
+          <span class="badge" style="background: rgba(234,88,12,0.15); color: var(--primary); font-size: 11px; padding: 4px 10px; border-radius: 6px; margin-top: 6px; display: inline-block;">توصيل ثابت 200 دج • دفع عند الاستلام نقداً</span>
+        </div>
+
+        <!-- Auth Tabs: Login vs Register -->
+        <div class="auth-tabs">
+          <button id="landingTabLoginBtn" class="auth-tab active" onclick="switchLandingAuthTab('login')">🔑 تسجيل الدخول</button>
+          <button id="landingTabRegisterBtn" class="auth-tab" onclick="switchLandingAuthTab('register')">✨ إنشاء حساب جديد</button>
+        </div>
+
+        <div id="landingAuthAlert" class="auth-alert hidden"></div>
+
+        <!-- TAB 1: LOGIN FORM -->
+        <form id="landingLoginForm" class="auth-form" onsubmit="handleLandingLoginSubmit(event)">
+          <div style="margin-bottom: 14px;">
+            <label style="font-size: 13px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 8px;">اختر صفة الدخول:</label>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+              <button type="button" class="btn btn-sm btn-primary landing-login-role-btn" id="loginRoleCustomerBtn" onclick="selectLandingLoginRole('customer')">👤 زبون</button>
+              <button type="button" class="btn btn-sm btn-outline landing-login-role-btn" id="loginRoleShopBtn" onclick="selectLandingLoginRole('shop')">🏬 متجر</button>
+              <button type="button" class="btn btn-sm btn-outline landing-login-role-btn" id="loginRoleDriverBtn" onclick="selectLandingLoginRole('driver')">🛵 سائق</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="landingLoginPhone">رقم الهاتف الجزائري:</label>
+            <input type="tel" id="landingLoginPhone" class="form-control" placeholder="05XXXXXXXX / 06 / 07" value="0550123456" required>
+          </div>
+
+          <div class="form-group">
+            <label for="landingLoginPassword">كلمة المرور:</label>
+            <input type="password" id="landingLoginPassword" class="form-control" placeholder="••••••••" value="123456" required>
+          </div>
+
+          <button type="submit" id="landingLoginSubmitBtn" class="btn btn-primary btn-block" style="padding: 12px; font-size: 15px; font-weight: 800; margin-top: 10px;">
+            دخول إلى حسابي ➔
+          </button>
+        </form>
+
+        <!-- TAB 2: REGISTER FORM WITH ROLE SELECTION CARDS (Admin completely excluded) -->
+        <form id="landingRegisterForm" class="auth-form hidden" onsubmit="handleLandingRegisterSubmit(event)">
+          <div style="margin-bottom: 14px;">
+            <label style="font-size: 13px; font-weight: 700; color: var(--text-main); display: block; margin-bottom: 8px;">اختر نوع الحساب الذي ترغب بإنشائه:</label>
+            <div class="landing-role-cards-grid">
+              <div class="landing-role-card active" id="cardRoleCustomer" onclick="selectLandingRegisterRole('customer')">
+                <div class="role-card-icon">👤</div>
+                <div class="role-card-content">
+                  <strong>حساب زبون</strong>
+                  <p>تصفح المطاعم، طلب المأكولات وتوصيلها إلى باب منزلك</p>
+                </div>
+              </div>
+              <div class="landing-role-card" id="cardRoleStore" onclick="selectLandingRegisterRole('store')">
+                <div class="role-card-icon">🏬</div>
+                <div class="role-card-content">
+                  <strong>صاحب متجر / مطعم</strong>
+                  <p>نشر الوجبات والمأكولات واستقبال طلبات الزبائن مباشرة</p>
+                </div>
+              </div>
+              <div class="landing-role-card" id="cardRoleDriver" onclick="selectLandingRegisterRole('driver')">
+                <div class="role-card-icon">🛵</div>
+                <div class="role-card-content">
+                  <strong>سائق توصيل معتمد</strong>
+                  <p>استقبال وتوصيل الطلبات بدراجتك النارية وتحقيق دخل يومي</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label id="landingRegNameLabel">الاسم الكامل:</label>
+            <input type="text" id="landingRegName" class="form-control" placeholder="الاسم الكامل" required>
+          </div>
+
+          <div class="form-group">
+            <label>رقم الهاتف الجزائري:</label>
+            <input type="tel" id="landingRegPhone" class="form-control" placeholder="05XXXXXXXX / 06 / 07" required>
+          </div>
+
+          <div class="form-group">
+            <label>كلمة المرور:</label>
+            <input type="password" id="landingRegPassword" class="form-control" placeholder="اختر كلمة مرور لحسابك" required>
+          </div>
+
+          <!-- Customer neighborhood selector -->
+          <div class="form-group" id="landingCustNeighborhoodGroup">
+            <label>الحي في سور الغزلان:</label>
+            <select id="landingRegNeighborhood" class="form-control">
+              <option value="وسط المدينة">وسط المدينة</option>
+              <option value="حي الوئام">حي الوئام</option>
+              <option value="حي 114 مسكن">حي 114 مسكن</option>
+              <option value="حي ذراع البرج">حي ذراع البرج</option>
+              <option value="حي عين مريم">حي عين مريم</option>
+              <option value="حي باب الجزائر">حي باب الجزائر</option>
+              <option value="حي باب البوسعادة">حي باب البوسعادة</option>
+              <option value="حي النصر">حي النصر</option>
+              <option value="المنطقة الصناعية">المنطقة الصناعية</option>
+            </select>
+          </div>
+
+          <!-- Driver specific fields -->
+          <div id="landingDriverExtraFields" class="hidden">
+            <div class="form-group">
+              <label>نوع الدراجة النارية:</label>
+              <select id="landingDriverVehicleType" class="form-control">
+                <option value="SYM Fiddle / Orbit">دراجة SYM (Fiddle / Orbit)</option>
+                <option value="دراجة صينية VMS / Ray">دراجة VMS / Ray</option>
+                <option value="سكوتر كبير (Maxi Scooter)">سكوتر كبير</option>
+                <option value="دراجة نارية أخرى">دراجة نارية أخرى</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>لوحة ترقيم الدراجة:</label>
+              <input type="text" id="landingDriverPlate" class="form-control" placeholder="مثال: 00123-110-10">
+            </div>
+          </div>
+
+          <!-- Store specific fields -->
+          <div id="landingStoreExtraFields" class="hidden">
+            <div class="form-group">
+              <label>تصنيف النشاط التجاري:</label>
+              <select id="landingStoreCategory" class="form-control">
+                <option value="مطاعم ومشاوي">مطاعم ومشاوي على الفحم</option>
+                <option value="بيتزا وفاست فود">بيتزا وسندويتشات سريعة</option>
+                <option value="مخابز وحلويات">مخابز وحلويات تقليدية وعصرية</option>
+                <option value="أغذية عامة ومشروبات">أغذية عامة ومشروبات</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" id="landingRegSubmitBtn" class="btn btn-primary btn-block" style="padding: 12px; font-size: 15px; font-weight: 800; margin-top: 10px;">
+            إنشاء الحساب والمتابعة 🚀
+          </button>
+        </form>
+      </div>
+    </section>
+
     <!-- BANNER: PENDING ADMIN APPROVAL -->
     <div id="pendingApprovalBanner" class="pending-approval-card hidden">
       <div class="pending-icon">⏳</div>

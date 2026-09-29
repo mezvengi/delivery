@@ -58,8 +58,15 @@ import com.example.data.models.UserRole
 fun RoleSwitcherBar(
     selectedRole: UserRole,
     onRoleSelected: (UserRole) -> Unit,
+    showAdmin: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val visibleRoles = if (showAdmin) {
+        UserRole.values().toList()
+    } else {
+        listOf(UserRole.CUSTOMER, UserRole.SHOP, UserRole.DRIVER)
+    }
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -75,7 +82,7 @@ fun RoleSwitcherBar(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            UserRole.values().forEach { role ->
+            visibleRoles.forEach { role ->
                 val isSelected = role == selectedRole
                 val bgColor by animateColorAsState(
                     targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,

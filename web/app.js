@@ -1780,6 +1780,7 @@ function applyTheme(theme) {
 // AUTHENTICATION & USER SESSIONS
 // ==========================================
 let currentAuthUser = null;
+let currentLandingRegisterRole = 'customer';
 
 function initAuth() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -1794,30 +1795,87 @@ function initAuth() {
     }
   }
 
+  // Admin access via explicit parameter (?role=admin)
   if (requestedRole === 'admin') {
+    ensureAdminOptionInRoleSelect();
     const roleSelect = document.getElementById('roleSelect');
     if (roleSelect) roleSelect.value = 'admin';
+    const roleContainer = document.getElementById('roleSelectorContainer');
+    if (roleContainer) roleContainer.style.display = 'flex';
     switchRole('admin');
     updateAuthNav(currentAuthUser);
     return;
   }
 
+  // If already logged in, enter the system
   if (currentAuthUser) {
     applyUserSession(currentAuthUser);
     return;
   }
 
-  const isGuest = sessionStorage.getItem('sg_guest_browsing');
-  if (!isGuest) {
-    // Automatically show auth modal on first launch for customer!
-    openAuthModal('login');
-  }
+  // First launch or unauthenticated: Show ONLY the Auth Gateway!
+  showAuthLandingView();
   updateAuthNav(null);
+}
+
+function showAuthLandingView() {
+  document.querySelectorAll('.view-section').forEach(s => s.classList.add('hidden'));
+  const landing = document.getElementById('authLandingView');
+  if (landing) landing.classList.remove('hidden');
+
+  const roleContainer = document.getElementById('roleSelectorContainer');
+  if (roleContainer) roleContainer.style.display = 'none';
+
+  const cart = document.getElementById('floatingCart');
+  if (cart) cart.classList.add('hidden');
+
+  updateRoleSelectorOptions(null);
+}
+
+function ensureAdminOptionInRoleSelect() {
+  const select = document.getElementById('roleSelect');
+  if (!select) return;
+  let adminOpt = select.querySelector('option[value="admin"]');
+  if (!adminOpt) {
+    adminOpt = document.createElement('option');
+    adminOpt.value = 'admin';
+    adminOpt.innerText = 'الإدارة المركزية (مراقبة وتوزيع)';
+    select.appendChild(adminOpt);
+  }
+}
+
+function updateRoleSelectorOptions(user) {
+  const select = document.getElementById('roleSelect');
+  if (!select) return;
+
+  const isAdmin = user && (user.role === 'admin');
+  let adminOpt = select.querySelector('option[value="admin"]');
+
+  if (isAdmin) {
+    ensureAdminOptionInRoleSelect();
+  } else {
+    if (adminOpt) {
+      adminOpt.remove();
+    }
+  }
 }
 
 function applyUserSession(user) {
   currentAuthUser = user;
   updateAuthNav(user);
+
+  // Hide the landing auth screen
+  const landing = document.getElementById('authLandingView');
+  if (landing) landing.classList.add('hidden');
+
+  // Update role options (Admin is only present if user.role === 'admin')
+  updateRoleSelectorOptions(user);
+
+  const roleContainer = document.getElementById('roleSelectorContainer');
+  if (roleContainer) {
+    // Show role selector only for admin or multi-role preview
+    roleContainer.style.display = (user.role === 'admin') ? 'flex' : 'none';
+  }
 
   // Auto-fill checkout fields
   const nameInput = document.getElementById('custNameInput');
@@ -1848,7 +1906,7 @@ function applyUserSession(user) {
     }
   }
 
-  // Auto-route role view
+  // Auto-route to user's dashboard
   const role = (user.role || 'customer').toLowerCase();
   const targetRole = (role === 'store' || role === 'shop') ? 'shop' : role;
   const roleSelect = document.getElementById('roleSelect');
@@ -1856,6 +1914,236 @@ function applyUserSession(user) {
     roleSelect.value = targetRole;
   }
   switchRole(targetRole);
+}
+
+// Landing Auth Gateway Functions
+function switchLandingAuthTab(tab) {
+  const tabLoginBtn = document.getElementById('landingTabLoginBtn');
+  const tabRegBtn = document.getElementById('landingTabRegisterBtn');
+  const loginForm = document.getElementById('landingLoginForm');
+  const regForm = document.getElementById('landingRegisterForm');
+
+  if (tab === 'login') {
+    if (tabLoginBtn) tabLoginBtn.className = 'auth-tab active';
+    if (tabRegBtn) tabRegBtn.className = 'auth-tab';
+    if (loginForm) loginForm.classList.remove('hidden');
+    if (regForm) regForm.classList.add('hidden');
+  } else {
+    if (tabRegBtn) tabRegBtn.className = 'auth-tab active';
+    if (tabLoginBtn) tabLoginBtn.className = 'auth-tab';
+    if (regForm) regForm.classList.remove('hidden');
+    if (loginForm) loginForm.classList.add('hidden');
+  }
+  setLandingAuthAlert('');
+}
+
+function selectLandingLoginRole(role) {
+  document.querySelectorAll('.landing-login-role-btn').forEach(btn => {
+    btn.className = 'btn btn-sm btn-outline landing-login-role-btn';
+  });
+  const activeBtn = document.getElementById({
+    'customer': 'loginRoleCustomerBtn',
+    'shop': 'loginRoleShopBtn',
+    'driver': 'loginRoleDriverBtn'
+  }[role]);
+  if (activeBtn) activeBtn.className = 'btn btn-sm btn-primary landing-login-role-btn';
+
+  const phoneInput = document.getElementById('landingLoginPhone');
+  const passInput = document.getElementById('landingLoginPassword');
+  if (phoneInput && passInput) {
+    if (role === 'customer') { phoneInput.value = '0550123456'; passInput.value = '123456'; }
+    else if (role === 'shop') { phoneInput.value = '0551111111'; passInput.value = '123456'; }
+    else if (role === 'driver') { phoneInput.value = '0553333333'; passInput.value = '123456'; }
+  }
+}
+
+function selectLandingRegisterRole(role) {
+  currentLandingRegisterRole = role;
+  document.querySelectorAll('.landing-role-card').forEach(card => card.classList.remove('active'));
+
+  const cardMap = {
+    'customer': 'cardRoleCustomer',
+    'store': 'cardRoleStore',
+    'driver': 'cardRoleDriver'
+  };
+  const activeCard = document.getElementById(cardMap[role]);
+  if (activeCard) activeCard.classList.add('active');
+
+  const nameLabel = document.getElementById('landingRegNameLabel');
+  const nameInput = document.getElementById('landingRegName');
+  const custGroup = document.getElementById('landingCustNeighborhoodGroup');
+  const driverGroup = document.getElementById('landingDriverExtraFields');
+  const storeGroup = document.getElementById('landingStoreExtraFields');
+
+  if (role === 'customer') {
+    if (nameLabel) nameLabel.innerText = 'الاسم الكامل:';
+    if (nameInput) nameInput.placeholder = 'محمد - زبون سور الغزلان';
+    if (custGroup) custGroup.classList.remove('hidden');
+    if (driverGroup) driverGroup.classList.add('hidden');
+    if (storeGroup) storeGroup.classList.add('hidden');
+  } else if (role === 'store') {
+    if (nameLabel) nameLabel.innerText = 'اسم المتجر أو المطعم:';
+    if (nameInput) nameInput.placeholder = 'مطعم الأوراس للشواء / بيتزا روما';
+    if (custGroup) custGroup.classList.add('hidden');
+    if (driverGroup) driverGroup.classList.add('hidden');
+    if (storeGroup) storeGroup.classList.remove('hidden');
+  } else if (role === 'driver') {
+    if (nameLabel) nameLabel.innerText = 'اسم سائق التوصيل الكامل:';
+    if (nameInput) nameInput.placeholder = 'أمين دراجة التوصيل';
+    if (custGroup) custGroup.classList.add('hidden');
+    if (driverGroup) driverGroup.classList.remove('hidden');
+    if (storeGroup) storeGroup.classList.add('hidden');
+  }
+}
+
+function setLandingAuthAlert(msg, type = 'error') {
+  const el = document.getElementById('landingAuthAlert');
+  if (!el) return;
+  if (!msg) {
+    el.className = 'auth-alert hidden';
+    el.innerText = '';
+  } else {
+    el.className = `auth-alert ${type}`;
+    el.innerText = msg;
+  }
+}
+
+async function handleLandingLoginSubmit(e) {
+  e.preventDefault();
+  const phone = document.getElementById('landingLoginPhone').value.trim();
+  const password = document.getElementById('landingLoginPassword').value.trim();
+  const submitBtn = document.getElementById('landingLoginSubmitBtn');
+
+  if (!phone || !password) {
+    setLandingAuthAlert('يرجى كتابة رقم الهاتف وكلمة المرور');
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.innerText = 'جاري التحقق... ⏳';
+  setLandingAuthAlert('');
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, password })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      setLandingAuthAlert(data.error || 'بيانات الدخول غير صحيحة. يرجى التأكد من الرقم وكلمة المرور.');
+      submitBtn.disabled = false;
+      submitBtn.innerText = 'دخول إلى حسابي ➔';
+      return;
+    }
+
+    localStorage.setItem('sg_auth_user', JSON.stringify(data.user));
+    if (data.tokens && data.tokens.accessToken) {
+      localStorage.setItem('sg_auth_token', data.tokens.accessToken);
+    }
+
+    setLandingAuthAlert('تم تسجيل الدخول بنجاح! جاري فتح المنصة 🎉', 'success');
+    setTimeout(() => {
+      applyUserSession(data.user);
+      submitBtn.disabled = false;
+      submitBtn.innerText = 'دخول إلى حسابي ➔';
+    }, 400);
+  } catch (err) {
+    // Offline fallback for testing
+    let mockRole = 'customer';
+    if (phone === '0551111111' || phone === '0552222222') mockRole = 'store';
+    else if (phone === '0553333333' || phone === '0554444444') mockRole = 'driver';
+    else if (phone === '0555000000') mockRole = 'admin';
+
+    const fallbackUser = {
+      id: Date.now(),
+      full_name: mockRole === 'store' ? 'متجر سور الغزلان' : (mockRole === 'driver' ? 'سائق دراجة معتمد' : (mockRole === 'admin' ? 'مدير المنصة' : 'زبون سور الغزلان')),
+      phone: phone,
+      role: mockRole,
+      status: 'active'
+    };
+    localStorage.setItem('sg_auth_user', JSON.stringify(fallbackUser));
+    localStorage.setItem('sg_auth_token', 'mock-token-' + Date.now());
+    setLandingAuthAlert('تم تسجيل الدخول بنجاح! جاري فتح المنصة 🎉', 'success');
+    setTimeout(() => {
+      applyUserSession(fallbackUser);
+      submitBtn.disabled = false;
+      submitBtn.innerText = 'دخول إلى حسابي ➔';
+    }, 400);
+  }
+}
+
+async function handleLandingRegisterSubmit(e) {
+  e.preventDefault();
+  const name = document.getElementById('landingRegName').value.trim();
+  const phone = document.getElementById('landingRegPhone').value.trim();
+  const password = document.getElementById('landingRegPassword').value.trim();
+  const submitBtn = document.getElementById('landingRegSubmitBtn');
+  const role = currentLandingRegisterRole;
+
+  if (!name || !phone || !password) {
+    setLandingAuthAlert('يرجى ملء جميع الحقول المطلوبة');
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.innerText = 'جاري إنشاء الحساب... ⏳';
+  setLandingAuthAlert('');
+
+  const profile = {};
+  if (role === 'customer') {
+    profile.address = document.getElementById('landingRegNeighborhood')?.value || 'وسط المدينة';
+  } else if (role === 'driver') {
+    profile.vehicle_type = document.getElementById('landingDriverVehicleType')?.value || 'دراجة SYM';
+    profile.license_plate = document.getElementById('landingDriverPlate')?.value || 'DZ';
+  } else if (role === 'store') {
+    profile.category = document.getElementById('landingStoreCategory')?.value || 'مطاعم ومشاوي';
+    profile.name = name;
+  }
+
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, password, role, profile })
+    });
+    const data = await res.json();
+
+    if (res.ok && data.user) {
+      localStorage.setItem('sg_auth_user', JSON.stringify(data.user));
+      if (data.token) localStorage.setItem('sg_auth_token', data.token);
+
+      setLandingAuthAlert('تم إنشاء الحساب بنجاح! مرحباً بك 🚀', 'success');
+      setTimeout(() => {
+        applyUserSession(data.user);
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'إنشاء الحساب والمتابعة 🚀';
+      }, 500);
+      return;
+    }
+  } catch (e) {}
+
+  // Fallback direct register
+  const isDirectActive = (role === 'customer');
+  const newUser = {
+    id: Date.now(),
+    name: name,
+    full_name: name,
+    phone: phone,
+    role: role,
+    status: isDirectActive ? 'active' : 'pending',
+    profile: profile
+  };
+  localStorage.setItem('sg_auth_user', JSON.stringify(newUser));
+  localStorage.setItem('sg_auth_token', 'token-' + Date.now());
+
+  setLandingAuthAlert('تم إنشاء الحساب بنجاح! مرحباً بك 🚀', 'success');
+  setTimeout(() => {
+    applyUserSession(newUser);
+    submitBtn.disabled = false;
+    submitBtn.innerText = 'إنشاء الحساب والمتابعة 🚀';
+  }, 500);
 }
 
 let approvalPollerInterval = null;
@@ -2317,8 +2605,7 @@ function logoutUser() {
   updateAuthNav(null);
   const banner = document.getElementById('pendingApprovalBanner');
   if (banner) banner.classList.add('hidden');
-  switchRole('customer');
   const roleSelect = document.getElementById('roleSelect');
   if (roleSelect) roleSelect.value = 'customer';
-  openAuthModal('login');
+  showAuthLandingView();
 }

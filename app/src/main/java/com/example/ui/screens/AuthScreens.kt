@@ -146,8 +146,9 @@ fun RoleSelectionScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Three Role Cards
-        RoleType.values().forEach { role ->
+        // Public User Roles (Customer, Store, Driver - Admin hidden from regular users)
+        val publicRoles = listOf(RoleType.CUSTOMER, RoleType.STORE, RoleType.DRIVER)
+        publicRoles.forEach { role ->
             RoleCard(
                 role = role,
                 isSelected = role == selectedRole,

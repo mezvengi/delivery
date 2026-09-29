@@ -317,12 +317,13 @@ fun SGdeliveryApp(
                     }
                 }
 
-                // Role Switcher Bar (allows previewing all dashboards)
+                // Role Switcher Bar (allows previewing dashboards, admin hidden from regular users)
                 RoleSwitcherBar(
                     selectedRole = currentRole,
                     onRoleSelected = { role ->
                         currentRole = role
-                    }
+                    },
+                    showAdmin = (user.role == RoleType.ADMIN)
                 )
             }
         }
