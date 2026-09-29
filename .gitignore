@@ -20,5 +20,3 @@ debug.keystore.base64
 .build-outputs/
 serviceAccount.json
 backend/serviceAccount.json
-google-services.json
-app/google-services.json
