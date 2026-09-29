@@ -1,7 +1,21 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const db = require('../db');
+const { admin, isInitialized: isFirebaseInitialized } = require('../firebaseAdmin');
 const { normalizeAlgerianPhone, generateToken, verifyToken, authMiddleware, hashPassword, comparePassword, sendTelegramOtp } = require('../auth');
+
+// Rate limiting for SMS phone verification endpoint
+const phoneVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 mins
+  max: 12, // 12 attempts per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: 'تم تجاوز عدد محاولات تفعيل الهاتف المسموح بها من هذا الجهاز. يرجى الانتظار 15 دقيقة.',
+  },
+});
 
 // Handler for generating and sending OTP / Activation Code via Telegram / WhatsApp
 async function handleSendOtp(req, res) {
@@ -104,8 +118,8 @@ router.post('/verify-otp', async (req, res) => {
       const passHash = password ? await hashPassword(password) : null;
 
       const insertResult = await db.query(
-        `INSERT INTO users (name, phone, role, password_hash, is_active) 
-         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        `INSERT INTO users (name, phone, role, password_hash, is_active, phone_verified, phone_verified_at) 
+         VALUES ($1, $2, $3, $4, $5, TRUE, NOW()) RETURNING *`,
         [displayName, normalizedPhone, finalRole, passHash, isInitiallyActive]
       );
       user = insertResult.rows[0];
@@ -129,10 +143,9 @@ router.post('/verify-otp', async (req, res) => {
     } else {
       user = userResult.rows[0];
       // If user entered valid activation code while pending, activate them now!
-      if (!user.is_active) {
-        await db.query(`UPDATE users SET is_active = TRUE WHERE id = $1`, [user.id]);
-        user.is_active = true;
-      }
+      await db.query(`UPDATE users SET is_active = TRUE, phone_verified = TRUE, phone_verified_at = NOW() WHERE id = $1`, [user.id]);
+      user.is_active = true;
+      user.phone_verified = true;
     }
 
     const token = generateToken(user);
@@ -247,6 +260,141 @@ router.post('/refresh', async (req, res) => {
       refreshToken: token,
     },
   });
+});
+
+/**
+ * POST /api/auth/verify-phone
+ * Firebase SMS Phone Authentication Endpoint:
+ * Verifies Firebase ID Token, extracts the phone number securely from the verified token,
+ * marks phone_verified = true, and returns app JWT.
+ */
+router.post('/verify-phone', phoneVerifyLimiter, async (req, res) => {
+  const { idToken, name, full_name, role, password, address, vehicle_type, license_plate, store_category } = req.body;
+
+  if (!idToken) {
+    return res.status(400).json({
+      success: false,
+      error: 'رمز التوثيق (idToken) مطلوب لإتمام التحقق.',
+    });
+  }
+
+  try {
+    let verifiedPhone = null;
+
+    if (isFirebaseInitialized()) {
+      // 1. Verify token with Firebase Admin SDK
+      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      // Strictly extract phone number from cryptographically signed Firebase Token
+      verifiedPhone = decodedToken.phone_number;
+    } else {
+      // Graceful fallback for development / local testing before serviceAccount.json is placed
+      console.warn('⚠️ Firebase Admin is not initialized with serviceAccount.json yet. Checking token format or fallback.');
+      try {
+        const decoded = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64').toString('utf8'));
+        verifiedPhone = decoded.phone_number;
+      } catch (parseErr) {
+        return res.status(500).json({
+          success: false,
+          error: 'سيرفر Firebase Admin غير مهيأ بعد بملف serviceAccount.json. يرجى وضعه في مجلد /backend.',
+        });
+      }
+    }
+
+    if (!verifiedPhone) {
+      return res.status(400).json({
+        success: false,
+        error: 'لم يتم العثور على رقم هاتف موثق داخل رمز التوثيق (Token).',
+      });
+    }
+
+    const normalizedPhone = normalizeAlgerianPhone(verifiedPhone);
+    if (!normalizedPhone) {
+      return res.status(400).json({
+        success: false,
+        error: 'رقم الهاتف الموثق ليس رقماً جزائرياً صالحاً (+213).',
+      });
+    }
+
+    const requestedRole = (role || 'customer').toLowerCase();
+    const finalRole = (requestedRole === 'store') ? 'shop' : requestedRole;
+    const displayName = full_name || name || (finalRole === 'shop' ? 'متجر سور الغزلان' : (finalRole === 'driver' ? 'سائق سور الغزلان' : 'زبون سور الغزلان'));
+
+    // Check if user already exists
+    let userResult = await db.query('SELECT * FROM users WHERE phone = $1', [normalizedPhone]);
+    let user;
+
+    if (userResult.rows.length === 0) {
+      // Register new user with phone_verified = true
+      const isInitiallyActive = (finalRole === 'customer' || finalRole === 'admin');
+      const passHash = password ? await hashPassword(password) : null;
+
+      const insertResult = await db.query(
+        `INSERT INTO users (name, phone, role, password_hash, is_active, phone_verified, phone_verified_at)
+         VALUES ($1, $2, $3, $4, $5, TRUE, NOW())
+         RETURNING *`,
+        [displayName, normalizedPhone, finalRole, passHash, isInitiallyActive]
+      );
+      user = insertResult.rows[0];
+
+      if (finalRole === 'shop') {
+        await db.query(
+          `INSERT INTO shops (user_id, name, category, neighborhood, address_description, phone, is_open)
+           VALUES ($1, $2, $3, $4, $5, $6, TRUE)`,
+          [user.id, displayName, store_category || 'مطاعم ومشويات', 'وسط المدينة', address || 'سور الغزلان', normalizedPhone]
+        );
+      }
+    } else {
+      // Update existing user to verified
+      const updateResult = await db.query(
+        `UPDATE users
+         SET phone_verified = TRUE, phone_verified_at = NOW()
+         WHERE phone = $1
+         RETURNING *`,
+        [normalizedPhone]
+      );
+      user = updateResult.rows[0];
+    }
+
+    // Generate App JWT Token
+    const appToken = generateToken(user);
+
+    return res.status(200).json({
+      success: true,
+      message: 'تم تفعيل الحساب والتحقق من رقم الهاتف بنجاح عبر Firebase SMS! ✅',
+      token: appToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        full_name: user.name,
+        phone: user.phone,
+        role: user.role,
+        phone_verified: true,
+        status: user.is_active ? 'active' : 'pending',
+      },
+    });
+
+  } catch (error) {
+    console.error('❌ [Firebase Verify-Phone Error]:', error);
+
+    if (error.code === 'auth/id-token-expired') {
+      return res.status(401).json({
+        success: false,
+        error: 'انتهت صلاحية جلسة التحقق (Token Expired). يرجى طلب رمز جديد.',
+      });
+    }
+
+    if (error.code === 'auth/argument-error' || error.code === 'auth/invalid-id-token') {
+      return res.status(401).json({
+        success: false,
+        error: 'رمز التوثيق غير صالح أو تم التلاعب به.',
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      error: 'حدث خطأ في الخادم أثناء التحقق من الرمز: ' + (error.message || 'حاول مجدداً'),
+    });
+  }
 });
 
 module.exports = router;

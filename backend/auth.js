@@ -38,6 +38,7 @@ function generateToken(user) {
       phone: user.phone,
       role: user.role,
       name: user.name,
+      phone_verified: user.phone_verified === true,
     },
     JWT_SECRET,
     { expiresIn: '30d' }
@@ -71,6 +72,23 @@ function authMiddleware(allowedRoles = []) {
   };
 }
 
+/**
+ * Middleware: يمنع العمليات الحساسة إلا بعد تأكيد الهاتف برمز OTP
+ */
+function requireVerifiedPhone(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'يرجى تسجيل الدخول أولاً' });
+  }
+  // إذا لم يكن الهاتف مفعلاً
+  if (req.user.phone_verified !== true && req.user.role !== 'admin') {
+    return res.status(403).json({
+      error: 'حسابك بحاجة إلى تفعيل رقم الهاتف برمز SMS قبل إتمام هذا الإجراء',
+      require_verification: true
+    });
+  }
+  next();
+}
+
 async function sendTelegramOtp(phone, code) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_ADMIN_CHAT_ID;
@@ -93,6 +111,7 @@ module.exports = {
   generateToken,
   verifyToken,
   authMiddleware,
+  requireVerifiedPhone,
   hashPassword: (p) => bcrypt.hash(p, 10),
   comparePassword: (p, h) => bcrypt.compare(p, h),
   sendTelegramOtp,

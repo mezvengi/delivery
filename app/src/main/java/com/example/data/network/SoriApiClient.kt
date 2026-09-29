@@ -54,6 +54,18 @@ data class VerifyOtpDtoRequest(
     val store_category: String? = null
 )
 
+data class VerifyPhoneRequest(
+    val idToken: String,
+    val name: String? = null,
+    val full_name: String? = null,
+    val role: String? = "customer",
+    val password: String? = null,
+    val address: String? = null,
+    val vehicle_type: String? = null,
+    val license_plate: String? = null,
+    val store_category: String? = null
+)
+
 data class TokensDto(
     val accessToken: String,
     val refreshToken: String? = null
@@ -300,6 +312,9 @@ interface SoriApiService {
 
     @POST("/api/auth/verify-otp")
     suspend fun verifyOtp(@Body request: VerifyOtpDtoRequest): VerifyOtpDtoResponse
+
+    @POST("/api/auth/verify-phone")
+    suspend fun verifyPhone(@Body request: VerifyPhoneRequest): VerifyOtpDtoResponse
 
     @POST("/api/auth/login")
     suspend fun login(@Body request: LoginDtoRequest): VerifyOtpDtoResponse

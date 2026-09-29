@@ -35,6 +35,9 @@ services:
       - DEFAULT_DELIVERY_FEE=200
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - TELEGRAM_ADMIN_CHAT_ID=${TELEGRAM_ADMIN_CHAT_ID:-}
+      - FIREBASE_SERVICE_ACCOUNT_PATH=/app/serviceAccount.json
+    volumes:
+      - ./backend/serviceAccount.json:/app/serviceAccount.json:ro
     depends_on:
       postgres:
         condition: service_healthy

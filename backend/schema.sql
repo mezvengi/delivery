@@ -11,8 +11,15 @@ CREATE TABLE IF NOT EXISTS users (
     role VARCHAR(20) NOT NULL DEFAULT 'customer' CHECK (role IN ('customer', 'shop', 'driver', 'admin')),
     password_hash VARCHAR(255),
     is_active BOOLEAN DEFAULT TRUE,
+    phone_verified BOOLEAN DEFAULT FALSE,
+    phone_verified_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Migration support for existing databases
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified_at TIMESTAMP WITH TIME ZONE;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone_unique ON users(phone);
 
 -- 2. SHOPS TABLE
 CREATE TABLE IF NOT EXISTS shops (

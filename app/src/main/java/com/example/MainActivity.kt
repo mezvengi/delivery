@@ -68,14 +68,19 @@ import com.example.ui.screens.PendingApprovalScreen
 import com.example.ui.screens.RegisterScreen
 import com.example.ui.screens.RoleSelectionScreen
 import com.example.ui.screens.ShopDashboardScreen
+import com.example.ui.screens.PhoneAuthScreen
 import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.ThemeManager
+import com.example.ui.viewmodel.PhoneAuthViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 
 enum class AuthScreenState {
     ROLE_SELECTION,
     LOGIN,
-    REGISTER
+    REGISTER,
+    FIREBASE_PHONE_AUTH
 }
 
 enum class CustomerScreenState {
@@ -123,6 +128,8 @@ fun SGdeliveryApp(
 
     var authScreenState by remember { mutableStateOf(AuthScreenState.ROLE_SELECTION) }
     var selectedAuthRole by remember { mutableStateOf(RoleType.CUSTOMER) }
+    val scope = rememberCoroutineScope()
+    val phoneAuthViewModel: PhoneAuthViewModel = viewModel()
 
     // If not logged in, show Auth Flow
     if (currentUser == null) {
@@ -133,6 +140,7 @@ fun SGdeliveryApp(
                     onRoleSelected = { selectedAuthRole = it },
                     onContinueToLogin = { authScreenState = AuthScreenState.LOGIN },
                     onContinueToRegister = { authScreenState = AuthScreenState.REGISTER },
+                    onContinueToPhoneAuth = { authScreenState = AuthScreenState.FIREBASE_PHONE_AUTH },
                     currentThemeMode = currentThemeMode,
                     onThemeModeChanged = { themeManager.setThemeMode(it) }
                 )
@@ -146,6 +154,7 @@ fun SGdeliveryApp(
                         // Automatically routed via currentUser state flow
                     },
                     onGoToRegister = { authScreenState = AuthScreenState.REGISTER },
+                    onGoToPhoneAuth = { authScreenState = AuthScreenState.FIREBASE_PHONE_AUTH },
                     onBack = { authScreenState = AuthScreenState.ROLE_SELECTION }
                 )
             }
@@ -158,7 +167,27 @@ fun SGdeliveryApp(
                         // Automatically routed via currentUser state flow
                     },
                     onGoToLogin = { authScreenState = AuthScreenState.LOGIN },
+                    onGoToPhoneAuth = { authScreenState = AuthScreenState.FIREBASE_PHONE_AUTH },
                     onBack = { authScreenState = AuthScreenState.ROLE_SELECTION }
+                )
+            }
+
+            AuthScreenState.FIREBASE_PHONE_AUTH -> {
+                PhoneAuthScreen(
+                    viewModel = phoneAuthViewModel,
+                    onVerificationSuccess = { idToken, verifiedPhone ->
+                        scope.launch {
+                            authRepository.verifyPhoneWithFirebase(
+                                idToken = idToken,
+                                verifiedPhone = verifiedPhone,
+                                role = selectedAuthRole
+                            )
+                        }
+                    },
+                    onBackClick = {
+                        phoneAuthViewModel.resetState()
+                        authScreenState = AuthScreenState.ROLE_SELECTION
+                    }
                 )
             }
         }

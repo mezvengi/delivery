@@ -83,6 +83,7 @@ fun RoleSelectionScreen(
     onRoleSelected: (RoleType) -> Unit,
     onContinueToLogin: () -> Unit,
     onContinueToRegister: () -> Unit,
+    onContinueToPhoneAuth: () -> Unit = {},
     currentThemeMode: AppThemeMode,
     onThemeModeChanged: (AppThemeMode) -> Unit,
     modifier: Modifier = Modifier
@@ -166,6 +167,26 @@ fun RoleSelectionScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
+        Button(
+            onClick = onContinueToPhoneAuth,
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+        ) {
+            Text(
+                text = "📱 تفعيل الحساب برمز SMS (Firebase)",
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 14.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
         OutlinedButton(
             onClick = onContinueToRegister,
             shape = RoundedCornerShape(12.dp),
@@ -196,6 +217,7 @@ fun LoginScreen(
     authRepository: AuthRepository,
     onLoginSuccess: (UserAccount) -> Unit,
     onGoToRegister: () -> Unit,
+    onGoToPhoneAuth: () -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -552,7 +574,17 @@ fun LoginScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedButton(
+            onClick = onGoToPhoneAuth,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth().height(48.dp)
+        ) {
+            Text("📱 أو تسجيل الدخول برمز SMS (Firebase)", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -600,6 +632,7 @@ fun RegisterScreen(
     authRepository: AuthRepository,
     onRegisterSuccess: (UserAccount) -> Unit,
     onGoToLogin: () -> Unit,
+    onGoToPhoneAuth: () -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1031,6 +1064,16 @@ fun RegisterScreen(
                     }
                 }
             )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        OutlinedButton(
+            onClick = onGoToPhoneAuth,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth().height(48.dp)
+        ) {
+            Text("📱 أو التفعيل المباشر برمز SMS (Firebase)", fontWeight = FontWeight.Bold, fontSize = 13.sp)
         }
 
         Spacer(modifier = Modifier.height(16.dp))

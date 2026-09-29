@@ -32,5 +32,6 @@ data class UserAccount(
     val storeType: String = "",
     val storeLat: Double = SourElGhozlaneConstants.CENTER_LAT,
     val storeLon: Double = SourElGhozlaneConstants.CENTER_LON,
+    val phoneVerified: Boolean = true,
     val createdAt: Long = System.currentTimeMillis()
 )
