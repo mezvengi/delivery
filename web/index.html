@@ -333,9 +333,40 @@
     <!-- VIEW 2: SHOP VIEW -->
     <section id="shopView" class="view-section hidden">
       <div class="dashboard-header">
-        <h2>لوحة تحكم المتجر (مطعم الأوراس)</h2>
+        <h2 id="shopDashboardTitle">لوحة تحكم المتجر (مطعم الأوراس)</h2>
         <span class="status-pill status-open">المتجر مفتوح لاستقبال الطلبات ✅</span>
       </div>
+
+      <!-- Browser Notification & Audio Alert Banner for Merchant -->
+      <div class="audio-alert-banner">
+        <div class="audio-banner-info">
+          <div class="audio-status-indicator">
+            <span class="pulse-dot-green"></span>
+            <strong>🔊 التنبيه الصوتي المتصفحي مفعل</strong>
+          </div>
+          <p>يرن جرس المتصفح بصوت قوي وفوري فور وصول أي طلب جديد لتسريع الاستجابة والتحضير.</p>
+        </div>
+        <div class="audio-banner-actions">
+          <button type="button" class="btn btn-sm btn-primary" onclick="testNotificationSound('shop')">
+            🔊 تجربة رنين الجرس
+          </button>
+          <button type="button" id="shopNotifPermBtn" class="btn btn-sm btn-outline" onclick="requestBrowserNotificationPermission()">
+            🔔 إشعارات المتصفح
+          </button>
+          <button type="button" id="shopAudioToggleBtn" class="btn btn-sm btn-secondary" onclick="toggleAudioMute()">
+            🔈 كتم / تشغيل
+          </button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="simulateNewIncomingOrder('shop')" style="border-color: var(--primary); color: var(--primary);">
+            🛎️ محاكاة وصول طلب جديد
+          </button>
+        </div>
+      </div>
+
+      <div class="section-title" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+        <h3>طلبات الزبائن الواردة للمتجر</h3>
+        <span id="shopOrdersBadge" class="badge" style="background:var(--primary); color:white; font-size:12px; padding:3px 8px; border-radius:8px;">1 طلب نشط</span>
+      </div>
+
       <div id="shopOrdersList" class="orders-list">
         <!-- Populated dynamically -->
       </div>
@@ -346,7 +377,7 @@
       <div class="driver-card">
         <div class="driver-status-toggle">
           <div>
-            <h3>حالة السائق (أمين - SYM 125)</h3>
+            <h3 id="driverDashboardTitle">حالة السائق (أمين - SYM 125)</h3>
             <p>عند التفعيل سيظهر موقعك المباشر للزبائن في خريطة سور الغزلان</p>
           </div>
           <label class="switch">
@@ -360,9 +391,36 @@
         </div>
       </div>
 
-      <div class="section-title">
-        <h3>الطلبات الجاهزة للتوصيل في سور الغزلان</h3>
+      <!-- Browser Notification & Audio Alert Banner for Driver -->
+      <div class="audio-alert-banner">
+        <div class="audio-banner-info">
+          <div class="audio-status-indicator">
+            <span class="pulse-dot-green"></span>
+            <strong>🛵 جرس تنبيه طلبات التوصيل المباشر</strong>
+          </div>
+          <p>تنبيه صوتي متكرر واهتزاز فور توفر طلب توصيل جديد في أحياء سور الغزلان لسرعة قبوله.</p>
+        </div>
+        <div class="audio-banner-actions">
+          <button type="button" class="btn btn-sm btn-primary" onclick="testNotificationSound('driver')">
+            🔊 تجربة رنين الجرس
+          </button>
+          <button type="button" id="driverNotifPermBtn" class="btn btn-sm btn-outline" onclick="requestBrowserNotificationPermission()">
+            🔔 إشعارات النظام
+          </button>
+          <button type="button" id="driverAudioToggleBtn" class="btn btn-sm btn-secondary" onclick="toggleAudioMute()">
+            🔈 كتم / تشغيل
+          </button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="simulateNewIncomingOrder('driver')" style="border-color: var(--primary); color: var(--primary);">
+            🛎️ محاكاة طلب توصيل
+          </button>
+        </div>
       </div>
+
+      <div class="section-title" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+        <h3>الطلبات الجاهزة للتوصيل في سور الغزلان</h3>
+        <span id="driverOrdersBadge" class="badge" style="background:#22c55e; color:white; font-size:12px; padding:3px 8px; border-radius:8px;">1 طلب جاهز</span>
+      </div>
+
       <div id="driverOrdersList" class="orders-list">
         <!-- Populated dynamically -->
       </div>

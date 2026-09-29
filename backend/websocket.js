@@ -48,6 +48,11 @@ async function handleClientMessage(ws, data) {
       ws.send(JSON.stringify({ type: 'SUBSCRIBED', channel: 'drivers_active' }));
       break;
 
+    case 'SUBSCRIBE_ORDERS':
+      ws.subscriptions.add('orders_all');
+      ws.send(JSON.stringify({ type: 'SUBSCRIBED', channel: 'orders_all' }));
+      break;
+
     case 'UPDATE_DRIVER_LOCATION':
       // Driver publishes live GPS location
       if (data.driverId && data.lat && data.lon) {
@@ -111,7 +116,12 @@ function broadcastOrderStatus(orderId, status, details = {}) {
 
   for (const client of clients) {
     if (client.readyState === 1) {
-      if (client.subscriptions.has(`order_${orderId}`) || client.subscriptions.has('orders_all')) {
+      if (
+        !client.subscriptions ||
+        client.subscriptions.size === 0 ||
+        client.subscriptions.has(`order_${orderId}`) ||
+        client.subscriptions.has('orders_all')
+      ) {
         client.send(payload);
       }
     }

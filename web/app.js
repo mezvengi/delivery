@@ -560,6 +560,31 @@ function confirmOrder() {
   currentTrackingDriver = selectedDriver;
   resetDriverRatingUI();
 
+  // Trigger Audio Alert & Push Notification for Merchant and Driver!
+  const newOrderPayload = {
+    id: Date.now(),
+    orderNumber: orderNum,
+    shopName: currentShop.name,
+    customerName: custName,
+    customerPhone: document.getElementById('custPhoneInput')?.value || '0550123456',
+    neighborhood: custNeighborhood,
+    items: itemsSummary,
+    itemsSummary: itemsSummary,
+    total: total,
+    totalPrice: total,
+    deliveryFee: DELIVERY_FEE,
+    status: 'جديد • بانتظار التحضير',
+    createdAt: 'الآن'
+  };
+  triggerNewOrderArrival(newOrderPayload, 'both');
+
+  // Broadcast through WebSocket if connected
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    try {
+      ws.send(JSON.stringify({ action: 'NEW_ORDER', order: newOrderPayload }));
+    } catch (e) {}
+  }
+
   // Open Live Tracking Modal
   document.getElementById('trackingModal').classList.remove('hidden');
   document.getElementById('trackOrderNum').innerText = orderNum;
@@ -1078,6 +1103,347 @@ function completeDeliverySimulation() {
   showDriverRatingSection();
 }
 
+// ==========================================
+// BROWSER NOTIFICATION & AUDIO ALERT SYSTEM
+// ==========================================
+let audioCtx = null;
+let isAudioMuted = false;
+let originalPageTitle = document.title;
+let titleFlashTimer = null;
+
+// Dynamic orders store for merchants and drivers
+let shopOrders = [
+  {
+    id: 'ORD-101',
+    orderNumber: 'SOUR-4512',
+    shopName: 'مطعم الأوراس للشواء',
+    customerName: 'أمين بلحاج',
+    customerPhone: '0550112233',
+    neighborhood: 'حي الوئام',
+    items: '2x شواء نصف دجاجة على الفحم (1,500 دج)، 1x مشروب حمود بوعلام (150 دج)',
+    total: 1650,
+    status: 'جديد',
+    createdAt: 'منذ دقيقتين',
+    isNewArrival: false
+  }
+];
+
+let driverOrders = [
+  {
+    id: 'ORD-201',
+    orderNumber: 'SOUR-8921',
+    shopName: 'مطعم الأوراس (وسط المدينة)',
+    customerName: 'كريم قاسي',
+    customerPhone: '0554443322',
+    neighborhood: 'حي 114 مسكن',
+    deliveryFee: 200,
+    totalCod: 1850,
+    status: 'جاهز للاستلام',
+    createdAt: 'منذ 3 دقائق',
+    isNewArrival: false
+  }
+];
+
+function getAudioContext() {
+  if (!audioCtx) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioContextClass) {
+      audioCtx = new AudioContextClass();
+    }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+  return audioCtx;
+}
+
+// Pre-unlock AudioContext on first user interaction to bypass browser autoplay restrictions
+if (typeof window !== 'undefined') {
+  ['click', 'touchstart', 'keydown'].forEach(evt => {
+    window.addEventListener(evt, () => {
+      try {
+        getAudioContext();
+      } catch (e) {}
+    }, { once: true, passive: true });
+  });
+}
+
+// Synthesizes a loud, harmonic restaurant/delivery chime alert (Pure Web Audio, 0 external dependencies)
+function playNewOrderSound(repeatCount = 2) {
+  if (isAudioMuted) return;
+
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    // Harmonic chords in sequence: D5 (587Hz), A5 (880Hz), D6 (1175Hz)
+    const tones = [
+      { freq: 587.33, duration: 0.12, gain: 0.4 },
+      { freq: 880.00, duration: 0.14, gain: 0.5 },
+      { freq: 1174.66, duration: 0.38, gain: 0.65 }
+    ];
+
+    for (let r = 0; r < repeatCount; r++) {
+      const repOffset = r * 0.7; // spacing between repetitions
+
+      let noteTime = ctx.currentTime + repOffset;
+
+      tones.forEach(tone => {
+        const osc = ctx.createOscillator();
+        const overtone = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        const overtoneGain = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(tone.freq, noteTime);
+
+        // 1 octave above overtone for bell resonance
+        overtone.type = 'triangle';
+        overtone.frequency.setValueAtTime(tone.freq * 2, noteTime);
+
+        // Exponential decay envelope
+        gainNode.gain.setValueAtTime(0.001, noteTime);
+        gainNode.gain.exponentialRampToValueAtTime(tone.gain, noteTime + 0.015);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, noteTime + tone.duration);
+
+        overtoneGain.gain.setValueAtTime(0.001, noteTime);
+        overtoneGain.gain.exponentialRampToValueAtTime(tone.gain * 0.3, noteTime + 0.01);
+        overtoneGain.gain.exponentialRampToValueAtTime(0.001, noteTime + tone.duration * 0.7);
+
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+
+        overtone.connect(overtoneGain);
+        overtoneGain.connect(ctx.destination);
+
+        osc.start(noteTime);
+        osc.stop(noteTime + tone.duration);
+
+        overtone.start(noteTime);
+        overtone.stop(noteTime + tone.duration);
+
+        noteTime += (tone.duration * 0.75);
+      });
+    }
+
+    // Trigger mobile device vibration if supported
+    if ('vibrate' in navigator) {
+      try {
+        navigator.vibrate([250, 100, 250, 100, 450]);
+      } catch (e) {}
+    }
+  } catch (err) {
+    console.warn('Web Audio error:', err);
+  }
+}
+
+function testNotificationSound(role) {
+  getAudioContext();
+  playNewOrderSound(2);
+  const msg = role === 'shop'
+    ? '🔊 تم تشغيل جرس التنبيه التجريبي للمتجر! هكذا سيرن المتصفح فور وصول أي طلب جديد.'
+    : '🔊 تم تشغيل جرس التنبيه التجريبي للسائق! هكذا سيرن المتصفح فور توفر طلب توصيل جديد.';
+  showToast(msg);
+}
+
+function toggleAudioMute() {
+  isAudioMuted = !isAudioMuted;
+  const statusText = isAudioMuted ? 'تم كتم الصوت 🔇' : 'تم تفعيل الصوت 🔊';
+  const shopBtn = document.getElementById('shopAudioToggleBtn');
+  const driverBtn = document.getElementById('driverAudioToggleBtn');
+  const label = isAudioMuted ? '🔇 الصوت مكتوم' : '🔈 كتم / تشغيل';
+
+  if (shopBtn) shopBtn.innerText = label;
+  if (driverBtn) driverBtn.innerText = label;
+  showToast(statusText);
+}
+
+async function requestBrowserNotificationPermission() {
+  if (!('Notification' in window)) {
+    alert('عذراً، متصفحك الحالي لا يدعم إشعارات النظام المنبثقة.');
+    return;
+  }
+
+  if (Notification.permission === 'granted') {
+    showToast('✅ إشعارات المتصفح مفعلة مسبقاً وتعمل بنجاح!');
+    showBrowserPushNotification('تطبيق SGdelivery 🛵', 'إشعارات الطلبات مفعلة! ستتلقى تنبيهاً فورياً عند وصول أي طلب.');
+    return;
+  }
+
+  try {
+    const res = await Notification.requestPermission();
+    if (res === 'granted') {
+      showToast('🎉 تم تفعيل إشعارات المتصفح بنجاح!');
+      showBrowserPushNotification('تطبيق SGdelivery 🛵', 'تم تفعيل إشعارات المتصفح بنجاح! ستتلقى تنبيهاً عند وصول أي طلب جديد.');
+    } else {
+      showToast('⚠️ تم رفض الإشعارات أو حظرها من المتصفح.');
+    }
+  } catch (e) {
+    console.warn('Notification permission error:', e);
+  }
+}
+
+function showBrowserPushNotification(title, body) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      const notif = new Notification(title, {
+        body: body,
+        icon: 'https://cdn-icons-png.flaticon.com/512/2830/2830305.png',
+        tag: 'sg-delivery-order-' + Date.now(),
+        renotify: true,
+        vibrate: [250, 100, 250, 100, 450]
+      });
+      notif.onclick = function() {
+        window.focus();
+        this.close();
+      };
+    } catch (e) {}
+  }
+}
+
+function flashPageTitle(flashText) {
+  if (titleFlashTimer) clearInterval(titleFlashTimer);
+  let count = 0;
+  titleFlashTimer = setInterval(() => {
+    document.title = (count % 2 === 0) ? flashText : originalPageTitle;
+    count++;
+    if (count > 12) {
+      clearInterval(titleFlashTimer);
+      document.title = originalPageTitle;
+    }
+  }, 900);
+}
+
+function triggerNewOrderArrival(order, target = 'both') {
+  console.log('🚨 [NEW ORDER ARRIVAL TRIGGERED]:', order);
+
+  // 1. Play browser notification chime (3 repetitions for urgency)
+  playNewOrderSound(3);
+
+  // 2. Browser Desktop Push Notification
+  const orderNum = order.orderNumber || order.order_number || `SOUR-${Math.floor(1000 + Math.random() * 9000)}`;
+  const total = order.total || order.totalPrice || 1500;
+  const items = order.items || order.itemsSummary || 'وجبة جديدة';
+  const shop = order.shopName || 'مطعم الأوراس للشواء';
+  const neighborhood = order.neighborhood || 'وسط المدينة';
+
+  showBrowserPushNotification(
+    `🔔 طلب جديد وصل: ${orderNum}`,
+    `المتجر: ${shop} • الحي: ${neighborhood}\nالمبلغ: ${total} دج • ${items}`
+  );
+
+  // 3. Flash Browser Tab Title
+  flashPageTitle(`🚨 (1) طلب جديد: ${orderNum}`);
+
+  // 4. Update Shop Orders
+  if (target === 'shop' || target === 'both') {
+    const newShopOrder = {
+      id: order.id || Date.now(),
+      orderNumber: orderNum,
+      customerName: order.customerName || 'زبون سور الغزلان',
+      customerPhone: order.customerPhone || '0550112233',
+      neighborhood: neighborhood,
+      items: items,
+      total: total,
+      status: 'جديد • بانتظار التحضير',
+      createdAt: 'الآن (جديد ⚡)',
+      isNewArrival: true
+    };
+    shopOrders.unshift(newShopOrder);
+    renderShopDashboard();
+  }
+
+  // 5. Update Driver Orders
+  if (target === 'driver' || target === 'both') {
+    const newDriverOrder = {
+      id: order.id || Date.now(),
+      orderNumber: orderNum,
+      shopName: shop,
+      customerName: order.customerName || 'زبون سور الغزلان',
+      customerPhone: order.customerPhone || '0550112233',
+      neighborhood: neighborhood,
+      deliveryFee: order.deliveryFee || 200,
+      totalCod: total,
+      status: 'جاهز للاستلام 🛵',
+      createdAt: 'الآن (جديد ⚡)',
+      isNewArrival: true
+    };
+    driverOrders.unshift(newDriverOrder);
+    renderDriverDashboard();
+  }
+
+  showToast(`🛎️ طلب جديد وصل (${orderNum})! تم إطلاق جرس التنبيه الصوتي.`);
+}
+
+function simulateNewIncomingOrder(role) {
+  const sampleShops = ['مطعم الأوراس للشواء', 'بيتزا نابولي سور الغزلان', 'برغر سيتي', 'حلويات الورود'];
+  const sampleItems = [
+    '2x شواء نصف دجاجة على الفحم + 1x كوكا كولا (1,450 دج)',
+    '1x بيتزا سوبريم عائلية + بطاطا مقلية (1,200 دج)',
+    '3x سندويتش كبدة على الطريقة العاصمية + عصير رامي (1,350 دج)',
+    '1x وجبة شواء لحم خروف بلدي + سلاطة مشوية (1,900 دج)'
+  ];
+  const sampleNeighborhoods = ['حي الوئام', 'حي 114 مسكن', 'وسط المدينة', 'حي ذراع البرج', 'حي عين مريم'];
+
+  const randShop = sampleShops[Math.floor(Math.random() * sampleShops.length)];
+  const randItem = sampleItems[Math.floor(Math.random() * sampleItems.length)];
+  const randNeigh = sampleNeighborhoods[Math.floor(Math.random() * sampleNeighborhoods.length)];
+  const randNum = `SOUR-${Math.floor(2000 + Math.random() * 7000)}`;
+
+  const mockOrder = {
+    id: Date.now(),
+    orderNumber: randNum,
+    shopName: randShop,
+    customerName: 'زبون تجريبي (سعيد)',
+    customerPhone: '0551223344',
+    neighborhood: randNeigh,
+    items: randItem,
+    itemsSummary: randItem,
+    total: Math.floor(1100 + Math.random() * 900),
+    deliveryFee: 200,
+    createdAt: 'الآن'
+  };
+
+  triggerNewOrderArrival(mockOrder, role || 'both');
+}
+
+function showToast(msg) {
+  let toast = document.getElementById('sgGlobalToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'sgGlobalToast';
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1E293B;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 12px;
+      border-right: 4px solid var(--primary);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+      z-index: 10000;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.3s ease;
+      animation: fadeIn 0.3s ease;
+    `;
+    document.body.appendChild(toast);
+  }
+  toast.innerText = msg;
+  toast.style.display = 'flex';
+  toast.style.opacity = '1';
+
+  clearTimeout(toast._timeout);
+  toast._timeout = setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => { toast.style.display = 'none'; }, 300);
+  }, 4000);
+}
+
 // ROLE SWITCHER
 function switchRole(role) {
   document.querySelectorAll('.view-section').forEach(s => s.classList.add('hidden'));
@@ -1089,39 +1455,149 @@ function switchRole(role) {
 }
 
 function renderShopDashboard() {
-  document.getElementById('shopOrdersList').innerHTML = `
-    <div class="product-card" style="margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <strong>طلب جديد: SOUR-4512</strong>
-        <span class="badge" style="background:#fbbf24;color:black;">جديد • تحضير</span>
+  const container = document.getElementById('shopOrdersList');
+  const badge = document.getElementById('shopOrdersBadge');
+  if (!container) return;
+
+  if (badge) {
+    badge.innerText = `${shopOrders.length} طلبات`;
+  }
+
+  if (shopOrders.length === 0) {
+    container.innerHTML = '<div style="padding:30px; text-align:center; color:var(--text-muted); background:var(--card-subtle); border-radius:12px;">لا توجد طلبات جديدة حالياً للمتجر. في انتظار طلبات الزبائن... ⏳</div>';
+    return;
+  }
+
+  container.innerHTML = shopOrders.map(o => {
+    const isNew = o.isNewArrival ? 'order-card-new-arrival' : '';
+    const newBadge = o.isNewArrival ? '<span class="badge" style="background:#ef4444; color:white; animation:pulseRed 1s infinite; margin-right:6px;">🚨 وصول فوري جديد</span>' : '';
+
+    return `
+      <div class="product-card ${isNew}" style="margin-bottom:14px; padding:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div>
+            <strong>طلب: ${o.orderNumber}</strong> ${newBadge}
+            <span style="font-size:11px; color:var(--text-muted); margin-right:6px;">(${o.createdAt})</span>
+          </div>
+          <span class="badge" style="background:#fbbf24; color:black; font-weight:800;">${o.status}</span>
+        </div>
+
+        <p style="font-size:12px; color:var(--text-muted); margin:8px 0 6px 0;">
+          الزبون: <strong>${o.customerName}</strong> (${o.neighborhood}) | 📞 <a href="tel:${o.customerPhone}" style="color:var(--primary); font-weight:bold; text-decoration:none;">${o.customerPhone}</a>
+        </p>
+
+        <div style="background:var(--card-subtle); border-radius:8px; padding:10px; border:1px solid var(--border); font-size:13px; margin-bottom:10px;">
+          <strong style="color:var(--text-main); display:block; margin-bottom:2px;">الوجبات المطلوبة:</strong>
+          <span>${o.items}</span>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div>
+            <span style="font-size:11px; color:var(--text-muted);">إجمالي الطلب:</span>
+            <strong style="font-size:16px; color:var(--primary); margin-right:4px;">${o.total} دج</strong>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" onclick="handleShopAcceptOrder('${o.orderNumber}')">
+              🍳 قبول وبدء التحضير
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="handleShopReadyOrder('${o.orderNumber}')">
+              🛵 جاهز للتسليم للسائق
+            </button>
+          </div>
+        </div>
       </div>
-      <p style="font-size:12px;color:#94a3b8;margin:6px 0;">الزبون: أمين (حي الوئام) | 📞 0550112233</p>
-      <div style="font-size:13px;margin-bottom:10px;">
-        • 2x شواء نصف دجاجة على الفحم (1,500 دج)<br>
-        • 1x مشروب حمود بوعلام (150 دج)
-      </div>
-      <div style="display:flex;gap:8px;">
-        <button class="btn btn-primary" onclick="alert('تم قبول الطلب وجاري تحضيره في المطبخ')">قبول الطلب وبدء التحضير</button>
-        <button class="btn btn-secondary" onclick="alert('تم تجهيز الوجبة وبانتظار استلام السائق')">جاهز للتسليم للسائق</button>
-      </div>
-    </div>
-  `;
+    `;
+  }).join('');
+}
+
+function handleShopAcceptOrder(orderNum) {
+  const o = shopOrders.find(x => x.orderNumber === orderNum);
+  if (o) {
+    o.status = 'قيد التحضير في المطبخ 🍳';
+    o.isNewArrival = false;
+    renderShopDashboard();
+    showToast(`✅ تم قبول الطلب (${orderNum}) وبدأ تحضيره في المطبخ!`);
+  }
+}
+
+function handleShopReadyOrder(orderNum) {
+  const o = shopOrders.find(x => x.orderNumber === orderNum);
+  if (o) {
+    o.status = 'جاهز للتسليم للسائق 🛵';
+    o.isNewArrival = false;
+    renderShopDashboard();
+    showToast(`🛵 الطلب (${orderNum}) جاهز وبانتظار استلام سائق التوصيل!`);
+  }
 }
 
 function renderDriverDashboard() {
-  document.getElementById('driverOrdersList').innerHTML = `
-    <div class="product-card">
-      <div style="display:flex;justify-content:space-between;">
-        <strong>طلب جاهز للاستلام: SOUR-8921</strong>
-        <span style="color:#fb923c;font-weight:bold;">عمولة التوصيل: 200 دج</span>
+  const container = document.getElementById('driverOrdersList');
+  const badge = document.getElementById('driverOrdersBadge');
+  if (!container) return;
+
+  if (badge) {
+    badge.innerText = `${driverOrders.length} طلبات متاحة`;
+  }
+
+  if (driverOrders.length === 0) {
+    container.innerHTML = '<div style="padding:30px; text-align:center; color:var(--text-muted); background:var(--card-subtle); border-radius:12px;">لا توجد طلبات توصيل جاهزة للاستلام حالياً في سور الغزلان. ⏳</div>';
+    return;
+  }
+
+  container.innerHTML = driverOrders.map(o => {
+    const isNew = o.isNewArrival ? 'order-card-new-arrival' : '';
+    const newBadge = o.isNewArrival ? '<span class="badge" style="background:#ef4444; color:white; animation:pulseRed 1s infinite; margin-right:6px;">🚨 طلب توصيل جديد</span>' : '';
+
+    return `
+      <div class="product-card ${isNew}" style="margin-bottom:14px; padding:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div>
+            <strong>طلب توصيل: ${o.orderNumber}</strong> ${newBadge}
+            <span style="font-size:11px; color:var(--text-muted); margin-right:6px;">(${o.createdAt})</span>
+          </div>
+          <span class="badge" style="background:#22c55e; color:white; font-weight:800;">${o.status}</span>
+        </div>
+
+        <p style="font-size:12px; color:var(--text-muted); margin:8px 0 6px 0;">
+          من: <strong>${o.shopName}</strong> ➔ إلى: <strong>${o.neighborhood}</strong>
+        </p>
+
+        <div style="background:var(--card-subtle); border-radius:8px; padding:10px; border:1px solid var(--border); display:flex; justify-content:space-between; font-size:12px; margin-bottom:10px;">
+          <span>عمولة التوصيل للسائق: <strong style="color:#22c55e; font-size:14px;">+${o.deliveryFee} دج</strong></span>
+          <span>المبلغ الإجمالي للتحصيل نقداً: <strong style="color:var(--primary); font-size:14px;">${o.totalCod} دج</strong></span>
+        </div>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="handleDriverAcceptOrder('${o.orderNumber}')">
+            استلام والتحرك للزبون 🛵
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="handleDriverCompleteOrder('${o.orderNumber}')">
+            تم التسليم واستلام المبلغ ✅
+          </button>
+        </div>
       </div>
-      <p style="font-size:12px;color:#94a3b8;margin:6px 0;">من: مطعم الأوراس (وسط المدينة) ➔ إلى: حي 114 مسكن</p>
-      <div style="display:flex;gap:8px;margin-top:10px;">
-        <button class="btn btn-primary" onclick="alert('تم استلام الطلب وأنت الآن في الطريق للزبون')">استلام والتحرك للزبون 🛵</button>
-        <button class="btn btn-secondary" onclick="alert('تم تسليم الطلب واستلام المبلغ نقداً!')">تم التسليم واستلام المبلغ ✅</button>
-      </div>
-    </div>
-  `;
+    `;
+  }).join('');
+}
+
+function handleDriverAcceptOrder(orderNum) {
+  const o = driverOrders.find(x => x.orderNumber === orderNum);
+  if (o) {
+    o.status = 'في الطريق للزبون 🛵📍';
+    o.isNewArrival = false;
+    renderDriverDashboard();
+    showToast(`🛵 استلمت الطلب (${orderNum}) وأنت الآن في الطريق للزبون!`);
+  }
+}
+
+function handleDriverCompleteOrder(orderNum) {
+  const idx = driverOrders.findIndex(x => x.orderNumber === orderNum);
+  if (idx !== -1) {
+    const o = driverOrders[idx];
+    showToast(`🎉 تم تسليم الطلب (${orderNum}) واستلام ${o.totalCod} دج نقداً!`);
+    driverOrders.splice(idx, 1);
+    renderDriverDashboard();
+  }
 }
 
 function renderAdminDashboard() {
@@ -1709,6 +2185,7 @@ function initWebSocket() {
     ws.onopen = () => {
       console.log('✅ [WebSocket Connected]: Sour El Ghozlane Live Hub');
       ws.send(JSON.stringify({ action: 'SUBSCRIBE_DRIVERS' }));
+      ws.send(JSON.stringify({ action: 'SUBSCRIBE_ORDERS' }));
       if (currentTrackingOrderNum) {
         ws.send(JSON.stringify({ action: 'SUBSCRIBE_ORDER', orderId: currentTrackingOrderNum }));
       }
@@ -1718,6 +2195,15 @@ function initWebSocket() {
       try {
         const msg = JSON.parse(event.data);
         console.log('[WebSocket Message Received]:', msg);
+
+        // Real-time Order Arrival Notification
+        if (msg.type === 'ORDER_STATUS_UPDATE' || msg.type === 'NEW_ORDER') {
+          console.log('🚨 [New Order WebSocket Event]:', msg);
+          const orderPayload = msg.details || msg.data || msg.order || msg;
+          if (msg.status === 'NEW' || msg.type === 'NEW_ORDER' || !msg.status) {
+            triggerNewOrderArrival(orderPayload, 'both');
+          }
+        }
 
         if (msg.type === 'DRIVER_LOCATION_UPDATE' && msg.data) {
           const loc = msg.data;
