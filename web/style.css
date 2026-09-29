@@ -1264,4 +1264,251 @@ body {
   50% { box-shadow: 0 0 20px 6px rgba(234, 88, 12, 0.5); transform: translateY(-2px); }
 }
 
+/* ==========================================
+   CUSTOMER INTERACTIVE SHOPS MAP
+========================================== */
+.customer-map-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 22px;
+  box-shadow: 0 4px 20px var(--shadow);
+  transition: all 0.3s ease;
+}
+
+.customer-map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.customer-map-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.customer-map-icon {
+  font-size: 26px;
+  background: rgba(234, 88, 12, 0.12);
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.customer-map-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.map-neighborhood-pill {
+  background: var(--card-subtle);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.map-neigh-select {
+  background: transparent;
+  color: var(--text-main);
+  border: none;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+}
+
+.map-neigh-select option {
+  background: var(--card-bg);
+  color: var(--text-main);
+}
+
+.customer-map-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  font-size: 12px;
+}
+
+.map-legend-items {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.legend-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+}
+
+.legend-pin {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.customer-pin-color {
+  background: #22c55e;
+  box-shadow: 0 0 6px #22c55e;
+}
+
+.shop-pin-color {
+  background: #ea580c;
+  box-shadow: 0 0 6px #ea580c;
+}
+
+.driver-pin-color {
+  background: #3b82f6;
+  box-shadow: 0 0 6px #3b82f6;
+}
+
+.nearest-shop-banner {
+  background: rgba(234, 88, 12, 0.1);
+  border: 1px solid rgba(234, 88, 12, 0.3);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+/* Custom Customer Home Pin Marker */
+.custom-customer-leaflet-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.customer-home-pin {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.customer-home-badge {
+  background: #22c55e;
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  border: 2px solid white;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  position: relative;
+  z-index: 2;
+}
+
+.customer-pulse-ring {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.3);
+  box-shadow: 0 0 16px rgba(34, 197, 94, 0.6);
+  animation: radarWave 2s infinite ease-out;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.customer-pin-label {
+  background: #1e293b;
+  color: white;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-top: 3px;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+/* Custom Shop Map Pin Marker */
+.custom-shop-leaflet-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.shop-map-pin {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transform-origin: center bottom;
+  transition: transform 0.25s ease;
+}
+
+.shop-map-pin:hover {
+  transform: scale(1.15) translateY(-4px);
+  z-index: 9999;
+}
+
+.shop-pin-bubble {
+  background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50% 50% 50% 4px;
+  transform: rotate(-45deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+}
+
+.shop-pin-emoji {
+  transform: rotate(45deg);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.shop-pin-title {
+  background: #0f172a;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-top: 4px;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  border: 1px solid rgba(234, 88, 12, 0.4);
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
 

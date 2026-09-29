@@ -8,6 +8,11 @@ let currentShop = null;
 let selectedDriver = null;
 let driversMap = null;
 let liveTrackingMap = null;
+let customerShopsMap = null;
+let customerMapMarkers = [];
+let customerHomeMarker = null;
+let customerRadiusCircle = null;
+let activeCustomerNeighborhood = 'حي الوئام';
 let driverLiveMarker = null;
 let customerLiveMarker = null;
 let routePolyline = null;
@@ -17,6 +22,110 @@ let trackingInterval = null;
 // Dynamic Stores & Drivers Data (Populated from API or Merchants)
 let SHOPS = [];
 let DRIVERS = [];
+
+// Rich default stores in Sour El Ghozlane neighborhoods
+const DEFAULT_SHOPS = [
+  {
+    id: 1,
+    name: 'مطعم الأوراس للشواء البلدي',
+    category: 'bbq',
+    categoryName: 'مشويات وشواء',
+    neighborhood: 'وسط المدينة',
+    address: 'شارع فلسطين، وسط المدينة، سور الغزلان',
+    lat: 36.1488,
+    lon: 3.6908,
+    deliveryTime: '15-25 دقيقة',
+    rating: '4.9 ★',
+    products: [
+      { id: 101, name: 'نصف دجاجة شواء على الفحم', desc: 'مع بطاطا مقلية وسلاطة مشوية وخبز تقليدي', price: 750 },
+      { id: 102, name: 'طبق شواء لحم خروف بلدي', desc: 'قطع لحم طازجة مشوية مع التوابل الحارة', price: 1200 },
+      { id: 103, name: 'مشروب حمود بوعلام 1 لتر', desc: 'سيلكتو أو ليمون بارد', price: 150 }
+    ]
+  },
+  {
+    id: 2,
+    name: 'بيتزا نابولي سور الغزلان (Pizzeria Napoli)',
+    category: 'pizza',
+    categoryName: 'بيتزا وإيطالي',
+    neighborhood: 'حي الوئام',
+    address: 'طريق حي الوئام الجديد، سور الغزلان',
+    lat: 36.1525,
+    lon: 3.6965,
+    deliveryTime: '20-30 دقيقة',
+    rating: '4.8 ★',
+    products: [
+      { id: 201, name: 'بيتزا كاري دجاج إيطالية', desc: 'صلصة طماطم طازجة، جبن موزاريلا، دجاج متبل بصلصة الكاري', price: 650 },
+      { id: 202, name: 'بيتزا 4 أجبان فورماج', desc: 'موزاريلا، غرويير، شيدر، وجبن أزرق رائع', price: 750 },
+      { id: 203, name: 'بيتزا مارغريتا كلاسيك', desc: 'جبن موزاريلا وطماطم وريحان طبيعي', price: 450 }
+    ]
+  },
+  {
+    id: 3,
+    name: 'برغر سيتي & تاكوس فاست فود',
+    category: 'fast_food',
+    categoryName: 'وجبات سريعة',
+    neighborhood: 'حي 114 مسكن',
+    address: 'المجمع السكني 114 مسكن، سور الغزلان',
+    lat: 36.1442,
+    lon: 3.6945,
+    deliveryTime: '15-25 دقيقة',
+    rating: '4.7 ★',
+    products: [
+      { id: 301, name: 'تاكوس لارج دجاج ولحم مفروم', desc: 'مع بطاطا وصلصة الجبن الذائبة صوص ألجيريان', price: 650 },
+      { id: 302, name: 'برغر دبل تشيز بريميوم', desc: 'لحم بقري صافي مع شيدر دبل وصوص المايونيز الخاصة', price: 550 },
+      { id: 303, name: 'علبة بطاطا مقلية عائلية', desc: 'بطاطا مقرمشة ذهبية مع صوص الجبن والكاتشب', price: 200 }
+    ]
+  },
+  {
+    id: 4,
+    name: 'شواء ومشاوي ذراع البرج الشعبية',
+    category: 'bbq',
+    categoryName: 'مشاوي وكبدة',
+    neighborhood: 'حي ذراع البرج',
+    address: 'حي ذراع البرج، قرب الساحة، سور الغزلان',
+    lat: 36.1555,
+    lon: 3.6845,
+    deliveryTime: '20-30 دقيقة',
+    rating: '4.9 ★',
+    products: [
+      { id: 401, name: 'طبق كبدة مشوية على الجمر', desc: 'كبدة غنم طازجة مع الشحم والتوابل التقليدية', price: 850 },
+      { id: 402, name: 'شواء مرقاز بلدي حار', desc: 'مرقاز محلي على الفحم مع صوص حارة وهريسة', price: 700 }
+    ]
+  },
+  {
+    id: 5,
+    name: 'مخبزة وحلويات الورود البهية',
+    category: 'sweets',
+    categoryName: 'حلويات ومخبوزات',
+    neighborhood: 'حي باب الجزائر',
+    address: 'قرب مدخل باب الجزائر، سور الغزلان',
+    lat: 36.1498,
+    lon: 3.6885,
+    deliveryTime: '15-20 دقيقة',
+    rating: '5.0 ★',
+    products: [
+      { id: 501, name: 'تشكيلة حلويات شرقية فاخرة (1 كغ)', desc: 'بقلاوة، مقروط العسل، وقريوش محلي أصيل', price: 950 },
+      { id: 502, name: 'علبة كرواسون وبينيه شوكولا (6 قطع)', desc: 'مخبوزات طازجة محشوة شوكولا نوتيلا', price: 400 },
+      { id: 503, name: 'تارت فراولة وموز طازجة', desc: 'كريمة باتيسيير فرنسية مع فواكه الموسم', price: 450 }
+    ]
+  },
+  {
+    id: 6,
+    name: 'ساندويشات وكبدة عين مريم',
+    category: 'sandwiches',
+    categoryName: 'سندويشات سريعة',
+    neighborhood: 'حي عين مريم',
+    address: 'الشارع الرئيسي، حي عين مريم، سور الغزلان',
+    lat: 36.1415,
+    lon: 3.6855,
+    deliveryTime: '15-20 دقيقة',
+    rating: '4.8 ★',
+    products: [
+      { id: 601, name: 'كاسكروط كبدة حار مع الفريت', desc: 'خبز باقيت طازج مع كبدة مقلية وسلاطة وهريسة', price: 350 },
+      { id: 602, name: 'ساندويش سكالوب مشوي مايونيز', desc: 'صدر دجاج مشوي متبل مع صلصة الثوم والجبن', price: 400 }
+    ]
+  }
+];
 
 // Neighborhood coordinates in Sour El Ghozlane
 const NEIGHBORHOODS = {
@@ -58,20 +167,26 @@ async function fetchShopsFromApi() {
             category: s.category || 'عام',
             neighborhood: s.address_description || 'سور الغزلان',
             address: s.address_description || 'سور الغزلان',
-            lat: parseFloat(s.lat) || 36.148,
-            lon: parseFloat(s.lng) || 3.690,
+            lat: parseFloat(s.lat) || (NEIGHBORHOODS[s.address_description] ? NEIGHBORHOODS[s.address_description][0] : 36.148),
+            lon: parseFloat(s.lng) || (NEIGHBORHOODS[s.address_description] ? NEIGHBORHOODS[s.address_description][1] : 3.690),
             deliveryTime: '20-30 دقيقة',
             rating: '5.0 ★',
-            products
+            products: products.length > 0 ? products : DEFAULT_SHOPS[0].products
           };
         }));
         SHOPS = fullShops;
+      } else {
+        SHOPS = DEFAULT_SHOPS;
       }
+    } else {
+      SHOPS = DEFAULT_SHOPS;
     }
   } catch (err) {
     console.log('[API] Using local shops store');
+    SHOPS = DEFAULT_SHOPS;
   }
   renderShops();
+  initCustomerShopsMap();
 }
 
 // Fetch real online drivers from API
@@ -371,6 +486,248 @@ function applyFilters() {
   }
 
   renderShops(filteredShops);
+  renderCustomerShopsMap(activeCustomerNeighborhood, filteredShops);
+}
+
+function getCategoryIcon(cat) {
+  switch (cat) {
+    case 'pizza': return '🍕';
+    case 'bbq': return '🥩';
+    case 'fast_food': return '🍔';
+    case 'sandwiches': return '🥪';
+    case 'sweets': return '🥐';
+    default: return '🏪';
+  }
+}
+
+// Initialize Leaflet map for customer view
+function initCustomerShopsMap() {
+  const mapElement = document.getElementById('customerShopsMap');
+  if (!mapElement) return;
+
+  const currentNeigh = document.getElementById('customerNeighborhoodSelect')?.value || activeCustomerNeighborhood || 'حي الوئام';
+  const centerCoords = NEIGHBORHOODS[currentNeigh] || SOUR_CENTER;
+
+  if (!customerShopsMap) {
+    customerShopsMap = L.map('customerShopsMap', {
+      zoomControl: true,
+      scrollWheelZoom: true
+    }).setView(centerCoords, 14);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap | Sour El Ghozlane Delivery'
+    }).addTo(customerShopsMap);
+  }
+
+  renderCustomerShopsMap(currentNeigh);
+}
+
+// Render dynamic customer neighborhood marker, delivery circle, and store pins
+function renderCustomerShopsMap(neighborhoodName, filteredShops = null) {
+  if (!customerShopsMap) {
+    initCustomerShopsMap();
+    return;
+  }
+
+  const shopsList = filteredShops || (activeCategory && activeCategory !== 'all'
+    ? SHOPS.filter(s => {
+        const keywords = CATEGORY_KEYWORDS[activeCategory] || [];
+        return keywords.some(kw => s.category.toLowerCase().includes(kw) || s.name.toLowerCase().includes(kw));
+      })
+    : SHOPS);
+
+  const neighCoords = NEIGHBORHOODS[neighborhoodName] || SOUR_CENTER;
+  activeCustomerNeighborhood = neighborhoodName;
+
+  // 1. Clear previous shop markers
+  customerMapMarkers.forEach(m => customerShopsMap.removeLayer(m));
+  customerMapMarkers = [];
+
+  // 2. Remove previous customer marker & coverage circle
+  if (customerHomeMarker) customerShopsMap.removeLayer(customerHomeMarker);
+  if (customerRadiusCircle) customerShopsMap.removeLayer(customerRadiusCircle);
+
+  // 3. Draw Customer Home Location Marker with Pulse
+  const customerHomeHtml = `
+    <div class="customer-home-pin">
+      <div class="customer-pulse-ring"></div>
+      <div class="customer-home-badge">📍</div>
+      <span class="customer-pin-label">${neighborhoodName} (حيك)</span>
+    </div>
+  `;
+  const customerIcon = L.divIcon({
+    className: 'custom-customer-leaflet-marker',
+    html: customerHomeHtml,
+    iconSize: [44, 56],
+    iconAnchor: [22, 46],
+    popupAnchor: [0, -42]
+  });
+
+  customerHomeMarker = L.marker(neighCoords, { icon: customerIcon })
+    .addTo(customerShopsMap)
+    .bindPopup(`
+      <div style="font-family:inherit; text-align:right; min-width:170px; padding:4px;">
+        <strong style="color:#22c55e; font-size:14px; display:block; margin-bottom:4px;">📍 موقع حيك: ${neighborhoodName}</strong>
+        <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">نطاق التوصيل السريع للمطاعم المجاورة</div>
+        <div style="font-size:11px; color:#10b981; font-weight:bold;">🛵 سرعة التوصيل المقدرة: 15-25 دقيقة</div>
+      </div>
+    `);
+
+  // 4. Proximity Radius Circle (Coverage zone: 1.1 km)
+  customerRadiusCircle = L.circle(neighCoords, {
+    radius: 1100,
+    color: '#22c55e',
+    fillColor: '#22c55e',
+    fillOpacity: 0.08,
+    weight: 2,
+    dashArray: '5, 5'
+  }).addTo(customerShopsMap);
+
+  // 5. Add markers for each store & compute distances
+  let nearestShop = null;
+  let minDistance = 999999;
+  const bounds = [neighCoords];
+
+  shopsList.forEach(shop => {
+    const sLat = parseFloat(shop.lat) || (NEIGHBORHOODS[shop.neighborhood] ? NEIGHBORHOODS[shop.neighborhood][0] : SOUR_CENTER[0]);
+    const sLon = parseFloat(shop.lon) || (NEIGHBORHOODS[shop.neighborhood] ? NEIGHBORHOODS[shop.neighborhood][1] : SOUR_CENTER[1]);
+    const distKm = getDistanceKm(neighCoords[0], neighCoords[1], sLat, sLon);
+
+    if (distKm < minDistance) {
+      minDistance = distKm;
+      nearestShop = { shop, distKm };
+    }
+
+    const distDisplay = distKm < 1 ? `${Math.round(distKm * 1000)} متر` : `${distKm.toFixed(1)} كم`;
+    const catIcon = getCategoryIcon(shop.category);
+
+    const shopHtml = `
+      <div class="shop-map-pin" title="${shop.name}">
+        <div class="shop-pin-bubble">
+          <span class="shop-pin-emoji">${catIcon}</span>
+        </div>
+        <span class="shop-pin-title">${shop.name.split(' ')[0]}</span>
+      </div>
+    `;
+
+    const shopIcon = L.divIcon({
+      className: 'custom-shop-leaflet-marker',
+      html: shopHtml,
+      iconSize: [44, 52],
+      iconAnchor: [22, 44],
+      popupAnchor: [0, -40]
+    });
+
+    const marker = L.marker([sLat, sLon], { icon: shopIcon }).addTo(customerShopsMap);
+
+    // Rich Interactive Popup
+    const popupContent = `
+      <div style="font-family:inherit; min-width:210px; text-align:right; padding:4px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <span style="font-size:11px; background:#ea580c; color:white; padding:2px 7px; border-radius:6px; font-weight:bold;">${shop.category || 'مطعم'}</span>
+          <span style="font-size:12px; color:#fbbf24; font-weight:bold;">${shop.rating || '5.0 ★'}</span>
+        </div>
+        <strong style="color:var(--text-main); font-size:14px; display:block; margin-bottom:4px;">${shop.name}</strong>
+        <div style="font-size:12px; color:#94a3b8; margin-bottom:4px;">📍 ${shop.neighborhood || shop.address}</div>
+        <div style="background:rgba(255,255,255,0.06); padding:6px 8px; border-radius:6px; font-size:12px; margin-bottom:8px; display:flex; justify-content:space-between;">
+          <span>المسافة من حيك: <strong style="color:#22c55e;">${distDisplay}</strong></span>
+          <span>التوصيل: <strong>200 دج</strong></span>
+        </div>
+        <button class="btn btn-primary btn-sm btn-block" onclick="selectShop(${shop.id})" style="width:100%; padding:7px; font-weight:800; font-size:12px; cursor:pointer;">
+          تصفح قائمة الطعام والطلب ➔
+        </button>
+      </div>
+    `;
+
+    marker.bindPopup(popupContent);
+    customerMapMarkers.push(marker);
+    bounds.push([sLat, sLon]);
+  });
+
+  // 6. Update Nearest Shop Banner
+  const nearestNameEl = document.getElementById('nearestShopName');
+  const nearestDistEl = document.getElementById('nearestShopDist');
+  if (nearestShop && nearestNameEl && nearestDistEl) {
+    const formattedDist = nearestShop.distKm < 1
+      ? `${Math.round(nearestShop.distKm * 1000)} متر`
+      : `${nearestShop.distKm.toFixed(1)} كم`;
+    nearestNameEl.innerText = nearestShop.shop.name;
+    nearestDistEl.innerText = `يبعد ${formattedDist} فقط عن ${neighborhoodName}`;
+  }
+
+  // 7. Fit bounds to comfortably display customer and surrounding stores
+  if (bounds.length > 1) {
+    customerShopsMap.fitBounds(bounds, { padding: [35, 35], maxZoom: 15 });
+  } else {
+    customerShopsMap.setView(neighCoords, 14);
+  }
+
+  setTimeout(() => {
+    if (customerShopsMap) customerShopsMap.invalidateSize();
+  }, 150);
+}
+
+function onCustomerNeighborhoodChange(neigh) {
+  activeCustomerNeighborhood = neigh;
+  const checkoutSelect = document.getElementById('custNeighborhoodSelect');
+  if (checkoutSelect) {
+    checkoutSelect.value = neigh;
+  }
+  renderCustomerShopsMap(neigh);
+  showToast(`📍 تم تحديد حيك (${neigh})! جارٍ عرض المتاجر الأقرب.`);
+}
+
+function locateUserGeolocation() {
+  if (!navigator.geolocation) {
+    alert('خاصية تحديد الموقع الجغرافي غير مدعومة في متصفحك.');
+    return;
+  }
+
+  showToast('🛰️ جارٍ تحديد موقعك الجغرافي عبر GPS...');
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const userLat = pos.coords.latitude;
+      const userLon = pos.coords.longitude;
+
+      let closestNeigh = 'حي الوئام';
+      let minD = 999999;
+      for (const [neigh, coords] of Object.entries(NEIGHBORHOODS)) {
+        const d = getDistanceKm(userLat, userLon, coords[0], coords[1]);
+        if (d < minD) {
+          minD = d;
+          closestNeigh = neigh;
+        }
+      }
+
+      const select = document.getElementById('customerNeighborhoodSelect');
+      if (select) select.value = closestNeigh;
+
+      onCustomerNeighborhoodChange(closestNeigh);
+      showToast(`🎯 تم تحديد موقعك بالقرب من (${closestNeigh}) بنجاح!`);
+    },
+    (err) => {
+      console.warn('Geolocation error:', err);
+      showToast('⚠️ تعذر قراءة GPS تلقائياً. يمكنك اختيار حيك يدوياً من القائمة.');
+    },
+    { timeout: 7000, enableHighAccuracy: true }
+  );
+}
+
+let isCustomerMapExpanded = false;
+function toggleCustomerMapHeight() {
+  const mapEl = document.getElementById('customerShopsMap');
+  const btn = document.getElementById('toggleMapExpandBtn');
+  if (!mapEl) return;
+
+  isCustomerMapExpanded = !isCustomerMapExpanded;
+  mapEl.style.height = isCustomerMapExpanded ? '520px' : '330px';
+  if (btn) {
+    btn.innerText = isCustomerMapExpanded ? '⤡ تصغير' : '⤢ تكبير';
+  }
+  setTimeout(() => {
+    if (customerShopsMap) customerShopsMap.invalidateSize();
+  }, 250);
 }
 
 // Select Shop
@@ -381,7 +738,7 @@ function selectShop(shopId) {
 
   document.getElementById('storeHeaderCard').innerHTML = `
     <h2>${currentShop.name}</h2>
-    <p>📍 ${currentShop.address} | 📞 ${currentShop.phone}</p>
+    <p>📍 ${currentShop.address} | 📞 ${currentShop.phone || '0550000000'}</p>
     <div style="margin-top: 6px;">
       <span class="badge" style="background:#ea580c;color:white;padding:3px 8px;border-radius:4px;">سعر التوصيل ثابت: 200 دج</span>
     </div>
@@ -393,6 +750,9 @@ function selectShop(shopId) {
 function showStoreList() {
   document.getElementById('storeDetailView').classList.add('hidden');
   document.getElementById('storeListView').classList.remove('hidden');
+  setTimeout(() => {
+    if (customerShopsMap) customerShopsMap.invalidateSize();
+  }, 150);
 }
 
 // Render Products
@@ -1449,6 +1809,15 @@ function switchRole(role) {
   document.querySelectorAll('.view-section').forEach(s => s.classList.add('hidden'));
   document.getElementById(`${role}View`).classList.remove('hidden');
 
+  if (role === 'customer') {
+    setTimeout(() => {
+      if (!customerShopsMap) {
+        initCustomerShopsMap();
+      } else {
+        customerShopsMap.invalidateSize();
+      }
+    }, 150);
+  }
   if (role === 'shop') renderShopDashboard();
   if (role === 'driver') renderDriverDashboard();
   if (role === 'admin') renderAdminDashboard();

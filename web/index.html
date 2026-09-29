@@ -286,6 +286,63 @@
           </div>
         </div>
 
+        <!-- INTERACTIVE SHOPS MAP SECTION (خريطة المتاجر القريبة التفاعلية) -->
+        <div class="customer-map-card" id="customerMapContainer">
+          <div class="customer-map-header">
+            <div class="customer-map-title-row">
+              <span class="customer-map-icon">🗺️</span>
+              <div>
+                <h4 style="margin: 0; font-size: 15px; font-weight: 800; color: var(--text-main);">خريطة المتاجر والمطاعم القريبة من حيك</h4>
+                <p id="customerMapSubtitle" style="margin: 3px 0 0 0; font-size: 11px; color: var(--text-muted);">
+                  اختر حيك في سور الغزلان لتحديد المتاجر الأقرب إليك وسرعة التوصيل
+                </p>
+              </div>
+            </div>
+
+            <!-- Neighborhood & Controls -->
+            <div class="customer-map-controls">
+              <div class="map-neighborhood-pill">
+                <span style="font-size: 13px;">📍 حيك:</span>
+                <select id="customerNeighborhoodSelect" class="map-neigh-select" onchange="onCustomerNeighborhoodChange(this.value)">
+                  <option value="وسط المدينة">وسط المدينة</option>
+                  <option value="حي الوئام" selected>حي الوئام</option>
+                  <option value="حي 114 مسكن">حي 114 مسكن</option>
+                  <option value="حي ذراع البرج">حي ذراع البرج</option>
+                  <option value="حي عين مريم">حي عين مريم</option>
+                  <option value="حي باب الجزائر">حي باب الجزائر</option>
+                  <option value="حي باب البوسعادة">حي باب البوسعادة</option>
+                  <option value="المنطقة الصناعية">المنطقة الصناعية</option>
+                  <option value="حي النصر">حي النصر</option>
+                </select>
+              </div>
+
+              <div style="display: flex; gap: 6px;">
+                <button type="button" class="btn btn-sm btn-outline" onclick="locateUserGeolocation()" style="padding: 5px 10px; font-size: 12px; white-space: nowrap;" title="تحديد موقعي الفعلي">
+                  🎯 موقعي
+                </button>
+                <button type="button" class="btn btn-sm btn-secondary" id="toggleMapExpandBtn" onclick="toggleCustomerMapHeight()" style="padding: 5px 10px; font-size: 12px; white-space: nowrap;">
+                  ⤢ تكبير
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Leaflet Map Container -->
+          <div id="customerShopsMap" style="height: 330px; width: 100%; border-radius: 12px; position: relative;"></div>
+
+          <!-- Map Footer with Legend and Nearest Store Notice -->
+          <div class="customer-map-footer">
+            <div class="map-legend-items">
+              <span class="legend-badge"><span class="legend-pin customer-pin-color"></span> موقع حيك</span>
+              <span class="legend-badge"><span class="legend-pin shop-pin-color"></span> مطاعم ومتاجر</span>
+              <span class="legend-badge"><span class="legend-pin driver-pin-color"></span> دراجات توصيل</span>
+            </div>
+            <div id="nearestShopNotice" class="nearest-shop-banner">
+              <span>⚡ أقرب متجر: <strong id="nearestShopName">جاري الحساب...</strong> (<span id="nearestShopDist">--</span>)</span>
+            </div>
+          </div>
+        </div>
+
         <div class="section-title">
           <h3 id="shopsSectionTitle">المتاجر والمطاعم المتاحة الآن في سور الغزلان</h3>
         </div>
