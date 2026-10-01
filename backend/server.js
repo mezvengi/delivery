@@ -5,6 +5,7 @@ const cors = require('cors');
 const { initWebSocket } = require('./websocket');
 
 const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
 const shopRoutes = require('./routes/shops');
 const productRoutes = require('./routes/products');
 const orderRoutes = require('./routes/orders');
@@ -45,8 +46,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// API Routes
+// API Routes (supports both /api/auth and /auth, /api/users and /users)
 app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/users', userRoutes);
 app.use('/api/shops', shopRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);

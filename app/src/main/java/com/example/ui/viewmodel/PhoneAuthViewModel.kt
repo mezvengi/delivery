@@ -29,8 +29,14 @@ sealed class PhoneAuthUiState {
 }
 
 class PhoneAuthViewModel(
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+    customAuth: FirebaseAuth? = null
 ) : ViewModel() {
+
+    private val auth: FirebaseAuth? = customAuth ?: try {
+        FirebaseAuth.getInstance()
+    } catch (e: Throwable) {
+        null
+    }
 
     private val _uiState = MutableStateFlow<PhoneAuthUiState>(PhoneAuthUiState.Idle)
     val uiState: StateFlow<PhoneAuthUiState> = _uiState.asStateFlow()
@@ -107,7 +113,13 @@ class PhoneAuthViewModel(
             }
         }
 
-        val optionsBuilder = PhoneAuthOptions.newBuilder(auth)
+        val firebaseAuth = auth
+        if (firebaseAuth == null) {
+            _uiState.value = PhoneAuthUiState.Error("خدمة التحقق من الهاتف عبر Firebase غير متوفرة حالياً.")
+            return
+        }
+
+        val optionsBuilder = PhoneAuthOptions.newBuilder(firebaseAuth)
             .setPhoneNumber(normalized)
             .setTimeout(60L, TimeUnit.SECONDS)
             .setActivity(activity)
@@ -144,10 +156,16 @@ class PhoneAuthViewModel(
      * تسجيل الدخول وجلب Firebase ID Token لإرساله للخادم الخاص
      */
     private fun signInWithPhoneAuthCredential(credential: PhoneAuthCredential) {
-        auth.signInWithCredential(credential)
+        val firebaseAuth = auth
+        if (firebaseAuth == null) {
+            _uiState.value = PhoneAuthUiState.Error("خدمة التحقق عبر Firebase غير متوفرة.")
+            return
+        }
+
+        firebaseAuth.signInWithCredential(credential)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    val user = auth.currentUser
+                    val user = firebaseAuth.currentUser
                     if (user != null) {
                         user.getIdToken(true).addOnCompleteListener { tokenTask ->
                             if (tokenTask.isSuccessful) {

@@ -549,6 +549,9 @@
           <button id="tabBtnAdminUsers" class="btn btn-sm btn-outline" onclick="switchAdminSection('users')">
             👥 إدارة كافة الحسابات (تعليق / حذف)
           </button>
+          <button id="tabBtnAdminNeighborhoods" class="btn btn-sm btn-outline" onclick="switchAdminSection('neighborhoods')">
+            🏘️ إدارة وتعديل الأحياء
+          </button>
         </div>
 
         <!-- SECTION 1: OPERATIONS & STATS -->
@@ -629,6 +632,33 @@
           <!-- All Users List Container -->
           <div id="adminAllUsersList" style="display:flex; flex-direction:column; gap:10px; margin-bottom: 25px;">
             <!-- Populated dynamically via loadAllAdminUsers() -->
+          </div>
+        </div>
+
+        <!-- SECTION 4: NEIGHBORHOODS MANAGEMENT (ADD / EDIT / DELETE) -->
+        <div id="adminNeighborhoodsSection" class="hidden">
+          <div style="background: var(--card-subtle); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 18px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 14px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 800; color: var(--text-main); margin-bottom: 4px;">🏘️ خاصية إدخال وتعديل أحياء سور الغزلان</h3>
+                <p style="font-size: 12px; color: var(--text-muted); margin: 0;">إضافة أحياء جديدة وتعديل أسمائها وإحداثياتها الجغرافية لتظهر فوراً في خيارات التوصيل للزبائن والمتاجر</p>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button class="btn btn-sm btn-primary" onclick="openAddNeighborhoodModal()">
+                  ➕ إضافة حي جديد
+                </button>
+                <button class="btn btn-sm btn-outline" onclick="resetWebNeighborhoods()">
+                  🔄 استعادة الافتراضي
+                </button>
+              </div>
+            </div>
+
+            <!-- Neighborhoods Search Bar -->
+            <input type="text" id="adminNeighborhoodSearch" class="form-control" placeholder="🔍 ابحث في أحياء سور الغزلان المسجلة..." oninput="filterAdminNeighborhoods(this.value)">
+          </div>
+
+          <div id="adminNeighborhoodsList" style="display:flex; flex-direction:column; gap:10px; margin-bottom: 25px;">
+            <!-- Populated dynamically via renderAdminNeighborhoods() -->
           </div>
         </div>
       </div>

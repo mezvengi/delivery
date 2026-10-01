@@ -20,7 +20,7 @@ import com.example.data.local.entities.ShopEntity
         DriverEntity::class,
         OrderEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class SourDeliveryDatabase : RoomDatabase() {
@@ -41,6 +41,7 @@ abstract class SourDeliveryDatabase : RoomDatabase() {
                     "sour_delivery_database"
                 )
                     .fallbackToDestructiveMigration()
+                    .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                 INSTANCE = instance
                 instance

@@ -46,6 +46,9 @@ interface ProductDao {
     @Query("UPDATE products SET isAvailable = :isAvailable WHERE id = :id")
     suspend fun updateProductAvailable(id: Long, isAvailable: Boolean)
 
+    @Query("DELETE FROM products WHERE id = :id")
+    suspend fun deleteProduct(id: Long)
+
     @Query("SELECT COUNT(*) FROM products")
     suspend fun getCount(): Int
 }

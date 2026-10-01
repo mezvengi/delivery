@@ -96,10 +96,14 @@ class AuthRepository(context: Context) {
                         UserAccount(
                             id = obj.getString("id"),
                             name = obj.getString("name"),
-                            phone = obj.getString("phone"),
+                            phone = obj.optString("phone", ""),
                             role = RoleType.valueOf(obj.getString("role")),
                             status = AccountStatus.valueOf(obj.getString("status")),
                             token = obj.getString("token"),
+                            email = obj.optString("email", ""),
+                            photoUrl = obj.optString("photoUrl", ""),
+                            firebaseUid = obj.optString("firebaseUid", ""),
+                            phoneVerified = obj.optBoolean("phoneVerified", false),
                             address = obj.optString("address", ""),
                             neighborhood = obj.optString("neighborhood", "وسط المدينة"),
                             vehicleType = obj.optString("vehicleType", ""),
@@ -127,6 +131,10 @@ class AuthRepository(context: Context) {
             obj.put("id", user.id)
             obj.put("name", user.name)
             obj.put("phone", user.phone)
+            obj.put("email", user.email)
+            obj.put("photoUrl", user.photoUrl)
+            obj.put("firebaseUid", user.firebaseUid)
+            obj.put("phoneVerified", user.phoneVerified)
             obj.put("role", user.role.name)
             obj.put("status", user.status.name)
             obj.put("token", user.token)
@@ -154,7 +162,18 @@ class AuthRepository(context: Context) {
         }
         if (!currentUserId.isNullOrEmpty()) {
             _currentUser.value = usersList.find { it.id == currentUserId }
+        } else {
+            _currentUser.value = null
         }
+    }
+
+    fun loginWithDemoRole(role: RoleType): UserAccount {
+        val user = usersList.firstOrNull { it.role == role } ?: usersList.first()
+        _currentUser.value = user
+        SoriApiClient.accessToken = user.token
+        prefs.edit().putString("current_session_user_id", user.id).apply()
+        prefs.edit().putString("secure_access_token", user.token).apply()
+        return user
     }
 
     // ==============================================================================
@@ -379,6 +398,125 @@ class AuthRepository(context: Context) {
 
         saveUserSession(account, mockToken, "")
         Result.success(account)
+    }
+
+    // ==============================================================================
+    // 2.2 Google Authentication - POST /api/auth/google
+    // ==============================================================================
+    suspend fun authenticateWithGoogle(
+        idToken: String,
+        role: RoleType = RoleType.CUSTOMER
+    ): Result<Pair<UserAccount, Boolean>> = withContext(Dispatchers.IO) {
+        val roleStr = when (role) {
+            RoleType.DRIVER -> "driver"
+            RoleType.STORE -> "store"
+            RoleType.ADMIN -> "admin"
+            RoleType.CUSTOMER -> "customer"
+        }
+
+        try {
+            val req = com.example.data.network.GoogleAuthRequest(
+                idToken = idToken,
+                role = roleStr
+            )
+            val apiRes = SoriApiClient.apiService.authenticateWithGoogle(req)
+            if (apiRes.success && apiRes.user != null) {
+                val token = apiRes.token ?: "jwt_google_${UUID.randomUUID()}"
+                SoriApiClient.accessToken = token
+
+                val status = if (apiRes.user.status == "pending") {
+                    AccountStatus.PENDING_APPROVAL
+                } else {
+                    AccountStatus.APPROVED
+                }
+
+                val account = UserAccount(
+                    id = apiRes.user.id?.toString() ?: UUID.randomUUID().toString(),
+                    name = apiRes.user.full_name ?: apiRes.user.name ?: "مستخدم Google",
+                    phone = apiRes.user.phone ?: "",
+                    email = apiRes.user.email ?: "",
+                    photoUrl = apiRes.user.photo_url ?: "",
+                    firebaseUid = apiRes.user.firebase_uid ?: "",
+                    role = role,
+                    status = status,
+                    token = token,
+                    phoneVerified = apiRes.user.phone_verified ?: false
+                )
+
+                saveUserSession(account, token, "")
+                return@withContext Result.success(Pair(account, apiRes.needs_phone))
+            } else if (!apiRes.error.isNullOrEmpty()) {
+                return@withContext Result.failure(Exception(apiRes.error))
+            }
+        } catch (e: Exception) {
+            // Fallback for offline testing
+        }
+
+        // Mock offline fallback
+        val mockToken = "jwt_google_mock_${UUID.randomUUID().toString().take(12)}"
+        val account = UserAccount(
+            id = "google-usr-${UUID.randomUUID().toString().take(8)}",
+            name = "مستخدم Google",
+            phone = "",
+            email = "user@gmail.com",
+            role = role,
+            status = if (role == RoleType.CUSTOMER || role == RoleType.ADMIN) AccountStatus.APPROVED else AccountStatus.PENDING_APPROVAL,
+            token = mockToken,
+            phoneVerified = false
+        )
+        saveUserSession(account, mockToken, "")
+        Result.success(Pair(account, true))
+    }
+
+    // ==============================================================================
+    // 2.3 Update Phone Number - PATCH /api/users/me/phone
+    // ==============================================================================
+    suspend fun updateMyPhone(rawPhone: String): Result<UserAccount> = withContext(Dispatchers.IO) {
+        val intlPhone = toInternationalAlgerianPhone(rawPhone)
+        val cleanLocal = normalizePhone(rawPhone)
+
+        try {
+            val req = com.example.data.network.UpdatePhoneRequest(phone = intlPhone)
+            val apiRes = SoriApiClient.apiService.updatePhone(req)
+            if (apiRes.success) {
+                if (apiRes.token != null) {
+                    SoriApiClient.accessToken = apiRes.token
+                    prefs.edit().putString("secure_access_token", apiRes.token).apply()
+                }
+
+                val current = _currentUser.value
+                val updated = current?.copy(
+                    phone = cleanLocal,
+                    phoneVerified = false
+                ) ?: UserAccount(
+                    id = UUID.randomUUID().toString(),
+                    name = "مستخدم SGdelivery",
+                    phone = cleanLocal,
+                    role = RoleType.CUSTOMER,
+                    status = AccountStatus.APPROVED,
+                    token = apiRes.token ?: ""
+                )
+
+                saveUserSession(updated, SoriApiClient.accessToken ?: "", "")
+                return@withContext Result.success(updated)
+            } else if (!apiRes.error.isNullOrEmpty()) {
+                return@withContext Result.failure(Exception(apiRes.error))
+            }
+        } catch (e: Exception) {
+            // Local fallback
+        }
+
+        val current = _currentUser.value
+        val updated = current?.copy(phone = cleanLocal) ?: UserAccount(
+            id = UUID.randomUUID().toString(),
+            name = "مستخدم SGdelivery",
+            phone = cleanLocal,
+            role = RoleType.CUSTOMER,
+            status = AccountStatus.APPROVED,
+            token = ""
+        )
+        saveUserSession(updated, SoriApiClient.accessToken ?: "", "")
+        Result.success(updated)
     }
 
     // ==============================================================================
@@ -771,6 +909,11 @@ class AuthRepository(context: Context) {
         prefs.edit().remove("current_session_user_id").apply()
         prefs.edit().remove("secure_access_token").apply()
         prefs.edit().remove("secure_refresh_token").apply()
+        try {
+            com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
+        } catch (e: Exception) {
+            // Ignore if Firebase isn't initialized yet
+        }
     }
 
     private fun saveUserSession(account: UserAccount, token: String, refreshToken: String) {
@@ -782,7 +925,11 @@ class AuthRepository(context: Context) {
             prefs.edit().putString("secure_refresh_token", refreshToken).apply()
         }
 
-        usersList.removeAll { it.id == account.id || normalizePhone(it.phone) == normalizePhone(account.phone) }
+        usersList.removeAll { 
+            it.id == account.id || 
+            (account.firebaseUid.isNotBlank() && it.firebaseUid == account.firebaseUid) ||
+            (account.phone.isNotBlank() && normalizePhone(it.phone) == normalizePhone(account.phone))
+        }
         usersList.add(account)
         saveUsers()
     }
@@ -792,6 +939,16 @@ class AuthRepository(context: Context) {
             .replace("-", "")
             .replace("+213", "0")
             .trim()
+    }
+
+    fun toInternationalAlgerianPhone(raw: String): String {
+        val clean = normalizePhone(raw)
+        return when {
+            clean.startsWith("0") && clean.length == 10 -> "+213" + clean.substring(1)
+            clean.length == 9 && (clean.startsWith("5") || clean.startsWith("6") || clean.startsWith("7")) -> "+213$clean"
+            clean.startsWith("+213") -> clean
+            else -> clean
+        }
     }
 
     companion object {

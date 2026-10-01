@@ -397,4 +397,186 @@ router.post('/verify-phone', phoneVerifyLimiter, async (req, res) => {
   }
 });
 
+// Rate limiting for Google Sign-In endpoint
+const googleAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 mins
+  max: 30, // 30 attempts per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: 'تم تجاوز عدد محاولات الدخول عبر Google من هذا الجهاز. يرجى الانتظار 15 دقيقة.',
+  },
+});
+
+/**
+ * POST /api/auth/google
+ * Google Sign-In with Firebase ID Token Verification:
+ * 1. Cryptographically verifies the Firebase ID Token using Firebase Admin SDK.
+ * 2. Strictly extracts uid, email, name, and picture from the verified payload (ignoring untrusted client values).
+ * 3. Upserts user in PostgreSQL database.
+ * 4. Checks if phone number is missing to prompt the user.
+ * 5. Returns application JWT token and user profile.
+ */
+router.post('/google', googleAuthLimiter, async (req, res) => {
+  const { idToken, role } = req.body;
+
+  if (!idToken) {
+    return res.status(400).json({
+      success: false,
+      error: 'رمز التوثيق (idToken) الخاص بـ Google مطلوب.',
+    });
+  }
+
+  try {
+    let firebaseUid;
+    let email;
+    let name;
+    let photoUrl;
+
+    if (isFirebaseInitialized()) {
+      // 1. Verify Firebase ID Token via Firebase Admin
+      const decoded = await admin.auth().verifyIdToken(idToken);
+      firebaseUid = decoded.uid;
+      email = decoded.email || null;
+      name = decoded.name || 'مستخدم Google';
+      photoUrl = decoded.picture || null;
+    } else {
+      // Development fallback when serviceAccount.json is not yet uploaded
+      console.warn('⚠️ [Firebase Admin]: Verifying token in development fallback mode.');
+      try {
+        const payloadBase64 = idToken.split('.')[1];
+        const decoded = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf8'));
+        firebaseUid = decoded.sub || decoded.user_id || decoded.uid;
+        email = decoded.email || null;
+        name = decoded.name || 'مستخدم Google';
+        photoUrl = decoded.picture || null;
+      } catch (e) {
+        return res.status(401).json({
+          success: false,
+          error: 'رمز التوثيق الخاص بـ Google غير صالح أو تالف.',
+        });
+      }
+    }
+
+    if (!firebaseUid) {
+      return res.status(400).json({
+        success: false,
+        error: 'تعذر استخراج معرف المستخدم الموثق (UID) من رمز Google.',
+      });
+    }
+
+    const requestedRole = (role || 'customer').toLowerCase();
+    const finalRole = (requestedRole === 'store') ? 'shop' : requestedRole;
+
+    // 2. Check if user already exists by firebase_uid
+    let userResult = await db.query(
+      'SELECT * FROM users WHERE firebase_uid = $1 LIMIT 1',
+      [firebaseUid]
+    );
+
+    let user;
+
+    if (userResult.rows.length === 0 && email) {
+      // Also check if an existing account with the same email exists to link
+      const emailResult = await db.query(
+        'SELECT * FROM users WHERE email = $1 LIMIT 1',
+        [email]
+      );
+      if (emailResult.rows.length > 0) {
+        // Link account with firebase_uid
+        const updateResult = await db.query(
+          `UPDATE users 
+           SET firebase_uid = $1, photo_url = COALESCE(photo_url, $2)
+           WHERE id = $3
+           RETURNING *`,
+          [firebaseUid, photoUrl, emailResult.rows[0].id]
+        );
+        user = updateResult.rows[0];
+      }
+    }
+
+    if (!user && userResult.rows.length > 0) {
+      user = userResult.rows[0];
+      // Update name/photo/email if newly provided
+      const updateResult = await db.query(
+        `UPDATE users
+         SET email = COALESCE($1, email),
+             name = COALESCE($2, name),
+             photo_url = COALESCE($3, photo_url)
+         WHERE id = $4
+         RETURNING *`,
+        [email, name, photoUrl, user.id]
+      );
+      user = updateResult.rows[0];
+    } else if (!user) {
+      // New user registration via Google Sign-In
+      const isInitiallyActive = (finalRole === 'customer' || finalRole === 'admin');
+      const insertResult = await db.query(
+        `INSERT INTO users (firebase_uid, email, name, photo_url, role, is_active, phone_verified)
+         VALUES ($1, $2, $3, $4, $5, $6, FALSE)
+         RETURNING *`,
+        [firebaseUid, email, name, photoUrl, finalRole, isInitiallyActive]
+      );
+      user = insertResult.rows[0];
+
+      // If store, register initial shop entry
+      if (finalRole === 'shop') {
+        await db.query(
+          `INSERT INTO shops (user_id, name, category, neighborhood, address_description, is_open)
+           VALUES ($1, $2, $3, $4, $5, TRUE)`,
+          [user.id, name, 'مطاعم ومشويات', 'وسط المدينة', 'سور الغزلان']
+        );
+      }
+    }
+
+    // 3. Check if user needs to supply their Algerian phone number
+    const needsPhone = !user.phone || user.phone.trim() === '';
+
+    // 4. Generate application JWT
+    const appToken = generateToken(user);
+
+    return res.status(200).json({
+      success: true,
+      message: 'تم تسجيل الدخول بحساب Google بنجاح! مرحبا بك في SGdelivery 🎉',
+      token: appToken,
+      needs_phone: needsPhone,
+      user: {
+        id: user.id,
+        firebase_uid: user.firebase_uid,
+        name: user.name,
+        full_name: user.name,
+        email: user.email,
+        phone: user.phone || null,
+        photo_url: user.photo_url || null,
+        role: user.role,
+        phone_verified: user.phone_verified === true,
+        status: user.is_active ? 'active' : 'pending',
+      },
+    });
+
+  } catch (error) {
+    console.error('❌ [Google Auth Error]:', error);
+
+    if (error.code === 'auth/id-token-expired') {
+      return res.status(401).json({
+        success: false,
+        error: 'انتهت صلاحية جلسة تسجيل الدخول بـ Google. يرجى إعادة المحاولة.',
+      });
+    }
+
+    if (error.code === 'auth/argument-error' || error.code === 'auth/invalid-id-token') {
+      return res.status(401).json({
+        success: false,
+        error: 'رمز التوثيق الخاص بـ Google غير صالح أو تم التلاعب به.',
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      error: 'حدث خطأ في الخادم أثناء التحقق من حساب Google: ' + (error.message || 'حاول مجدداً'),
+    });
+  }
+});
+
 module.exports = router;

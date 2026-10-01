@@ -3,6 +3,8 @@ package com.example.ui.theme
 import android.content.Context
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,7 +36,8 @@ class ThemeManager(context: Context) {
 
     @Composable
     fun isDarkThemeActive(): Boolean {
-        return when (_themeMode.value) {
+        val currentMode by _themeMode.collectAsState()
+        return when (currentMode) {
             AppThemeMode.SYSTEM -> isSystemInDarkTheme()
             AppThemeMode.LIGHT -> false
             AppThemeMode.DARK -> true

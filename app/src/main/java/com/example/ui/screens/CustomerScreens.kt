@@ -3,6 +3,7 @@ package com.example.ui.screens
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,9 +28,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
@@ -48,9 +53,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,11 +67,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.example.data.local.CustomerLoyaltyStorage
+import com.example.data.local.CustomerOrderHistoryStorage
 import com.example.data.local.CustomerPastOrder
+import com.example.data.local.LoyaltyTransaction
 import com.example.data.local.entities.DriverEntity
 import com.example.data.local.entities.OrderEntity
 import com.example.data.local.entities.ProductEntity
@@ -77,23 +92,30 @@ import com.example.ui.components.OrderStatusStepper
 import com.example.ui.components.SourElGhozlaneMapCanvas
 import kotlinx.coroutines.launch
 
-data class FoodCategory(
+data class StoreCategory(
     val id: String,
     val nameArabic: String,
     val icon: String,
+    val description: String = "",
     val keywords: List<String>
 )
 
-val defaultFoodCategories = listOf(
-    FoodCategory("all", "الكل", "🍽️", emptyList()),
-    FoodCategory("pizza", "بيتزا", "🍕", listOf("بيتزا", "pizza")),
-    FoodCategory("bbq", "شواء ومشويات", "🥩", listOf("شواء", "مشاوي", "مشويات", "دجاج")),
-    FoodCategory("fast_food", "وجبات سريعة", "🍔", listOf("سريعة", "برغر", "burger", "فاست")),
-    FoodCategory("sandwiches", "سندويشات", "🥪", listOf("سندويش", "تاكوس", "شاورما", "كبدة", "بانيني")),
-    FoodCategory("traditional", "أطباق تقليدية", "🍲", listOf("تقليدية", "شربة", "فريك", "الأوراس")),
-    FoodCategory("sweets", "حلويات ومخبوزات", "🥐", listOf("حلويات", "مخبوزات", "قلب اللوز", "كرواسون", "ميلفاي")),
-    FoodCategory("drinks", "مشروبات", "🥤", listOf("مشروب", "عصير", "بوعلام", "كوكاكولا"))
+typealias FoodCategory = StoreCategory
+
+val defaultStoreCategories = listOf(
+    StoreCategory("all", "الكل", "🌟", "جميع المتاجر في سور الغزلان", emptyList()),
+    StoreCategory("groceries", "مواد غذائية وسوبرماركت", "🛒", "بقالة، معلبات، خضر، أجبان، مشروبات", listOf("غذائية", "سوبرماركت", "بقالة", "مواد", "ماركت", "استهلاكية", "حبوب", "superette", "alimentation")),
+    StoreCategory("restaurants", "مطاعم ومأكولات", "🍽️", "بيتزا، شواء، برجر، سندويشات، تقليدي", listOf("مطعم", "بيتزا", "شواء", "مشاوي", "فاست", "برغر", "سندويش", "أكل", "وجبات", "restaurant")),
+    StoreCategory("clothing", "ألبسة وأحذية وأزياء", "👕", "ملابس رجالية، نسائية، أطفال، أحذية", listOf("ألبسة", "ملابس", "حذاء", "أحذية", "بوتيك", "أزياء", "vestimentaire", "vetement")),
+    StoreCategory("electronics", "أجهزة إلكترونية وهواتف", "📱", "هواتف، ملحقات، شواحن، إلكترونيات", listOf("إلكترونيات", "هاتف", "هواتف", "شاحن", "كهرومنزلية", "إلكتروني", "phone", "tech")),
+    StoreCategory("pharmacy", "صيدلية ومستلزمات صحية", "💊", "شبه صيدلانية، حليب أطفال، عناية", listOf("صيدلية", "شبه", "دواء", "أطفال", "عناية", "صحة", "pharmacie")),
+    StoreCategory("cosmetics", "عطور ومستحضرات تجميل", "💄", "كوسميتيك، عطور، عناية شخصية", listOf("كوسميتيك", "عطر", "عطور", "تجميل", "مكياج", "cosmetique")),
+    StoreCategory("stationery", "مكتبات وأدوات مدرسية", "📚", "كتب، كراريس، أدوات مدرسية، هدايا", listOf("مكتبة", "أدوات", "كراريس", "كتب", "مدرسية", "papeterie")),
+    StoreCategory("home", "مستلزمات منزلية وخردوات", "🏠", "خردوات، أدوات المطبخ، تنظيف", listOf("منزل", "خردوات", "تنظيف", "أواني", "quincaillerie")),
+    StoreCategory("sweets", "حلويات ومخبوزات", "🥐", "حلويات تقليدية، قلب اللوز، باتيسري", listOf("حلويات", "مخبزة", "باتيسري", "قلب اللوز", "كرواسون"))
 )
+
+val defaultFoodCategories = defaultStoreCategories
 
 @Composable
 fun CustomerShopListScreen(
@@ -101,7 +123,9 @@ fun CustomerShopListScreen(
     products: List<ProductEntity> = emptyList(),
     onShopSelected: (ShopEntity) -> Unit,
     onOpenOrderHistory: () -> Unit = {},
+    onOpenProfile: () -> Unit = {},
     orderHistoryCount: Int = 0,
+    loyaltyPoints: Int = 150,
     modifier: Modifier = Modifier
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -201,7 +225,7 @@ fun CustomerShopListScreen(
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "اختر مطعمك المفضل في سور الغزلان، أو صنف بالنوع (بيتزا، شواء، وجبات سريعة) وسائق التوصيل الأقرب إليك.",
+                        text = "توصيل فوري من كافة متاجر ومطاعم سور الغزلان (مواد غذائية، ألبسة، هواتف، صيدلية، مطاعم)، أقرب سائق دراجة نارية أو سكوتر إليك.",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
                         lineHeight = 18.sp
@@ -210,49 +234,87 @@ fun CustomerShopListScreen(
             }
         }
 
-        // Order History Quick Navigation Card
+        // Quick Navigation: Loyalty Points Card & Order History Card
         item {
-            Card(
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onOpenOrderHistory() }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(
+                // Loyalty Card
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)),
+                    border = BorderStroke(1.dp, Color(0xFFFDE68A)),
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .weight(1f)
+                        .clickable { onOpenProfile() }
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("📋", fontSize = 20.sp)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = "سجل الطلبات السابقة وتواريخ التوصيل",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "عرض تفاصيل الوجبات، الأسعار، وإعادة الطلب",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.outline
-                            )
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("⭐ نقاط الولاء", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF92400E))
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = Color(0xFFFEF3C7)
+                            ) {
+                                Text("خصم 🏷️", fontSize = 10.sp, color = Color(0xFFB45309), fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+                            }
                         }
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primary
-                    ) {
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "$orderHistoryCount طلبات ➔",
-                            color = Color.White,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            text = "$loyaltyPoints نقطة",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 16.sp,
+                            color = Color(0xFFB45309)
+                        )
+                        Text(
+                            text = "استبدلها بخصم التوصيل ➔",
+                            fontSize = 10.sp,
+                            color = Color(0xFF78350F),
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                }
+
+                // Order History Card
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onOpenOrderHistory() }
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("📋 طلباتي", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Text("$orderHistoryCount طلبات", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "سجل الطلبات",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 15.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "عرض التواريخ وتتبعها ➔",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.outline,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(top = 2.dp)
                         )
                     }
                 }
@@ -266,7 +328,7 @@ fun CustomerShopListScreen(
                 onValueChange = { searchQuery = it },
                 placeholder = {
                     Text(
-                        text = "ابحث عن مطعم أو وجبة (شواء، بيتزا، كبدة، برغر...)",
+                        text = "ابحث عن متجر أو منتج (مواد غذائية، هواتف، ألبسة، شواء، صيدلية...)",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -584,6 +646,7 @@ fun CustomerShopDetailScreen(
     val cart = remember { mutableStateMapOf<Long, Int>() }
     var showDriverModal by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     val totalItems = cart.values.sum()
     val subtotal = products.sumOf { (cart[it.id] ?: 0) * it.price }
@@ -630,6 +693,21 @@ fun CustomerShopDetailScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        if (product.imageUrl.isNotBlank()) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(product.imageUrl)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = product.name,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                        }
+
                         Column(modifier = Modifier.weight(1f)) {
                             Text(product.name, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                             Spacer(modifier = Modifier.height(2.dp))
@@ -770,8 +848,9 @@ fun CustomerShopDetailScreen(
                 cart = cart,
                 subtotal = subtotal,
                 drivers = drivers,
+                repository = repository,
                 onDismiss = { showDriverModal = false },
-                onConfirmOrder = { customerName, customerPhone, neighborhood, address, selectedDriver ->
+                onConfirmOrder = { customerName, customerPhone, neighborhood, address, selectedDriver, deliveryDiscount, pointsUsed ->
                     scope.launch {
                         val itemsSummary = products
                             .filter { (cart[it.id] ?: 0) > 0 }
@@ -787,7 +866,8 @@ fun CustomerShopDetailScreen(
                                 )
                             }
 
-                        val nCoord = SourElGhozlaneConstants.NEIGHBORHOODS.find { it.nameArabic == neighborhood }
+                        val nCoord = com.example.data.local.NeighborhoodStorage.getInstance(context).neighborhoods.value.find { it.nameArabic == neighborhood }
+                            ?: SourElGhozlaneConstants.NEIGHBORHOODS.find { it.nameArabic == neighborhood }
                         val custLat = nCoord?.lat ?: SourElGhozlaneConstants.CENTER_LAT
                         val custLon = nCoord?.lon ?: SourElGhozlaneConstants.CENTER_LON
 
@@ -802,7 +882,9 @@ fun CustomerShopDetailScreen(
                             customerLon = custLon,
                             itemsSummary = itemsSummary,
                             subtotal = subtotal,
-                            orderItems = orderItemsList
+                            orderItems = orderItemsList,
+                            deliveryFeeDiscount = deliveryDiscount,
+                            loyaltyPointsUsed = pointsUsed
                         )
 
                         showDriverModal = false
@@ -821,15 +903,33 @@ fun DriverSelectionSheet(
     cart: Map<Long, Int>,
     subtotal: Int,
     drivers: List<DriverEntity>,
+    repository: DeliveryRepository,
     onDismiss: () -> Unit,
-    onConfirmOrder: (name: String, phone: String, neighborhood: String, address: String, driver: DriverEntity?) -> Unit,
+    onConfirmOrder: (name: String, phone: String, neighborhood: String, address: String, driver: DriverEntity?, deliveryDiscount: Int, pointsUsed: Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val neighborhoodStorage = remember { com.example.data.local.NeighborhoodStorage.getInstance(context) }
+    val dynamicNeighborhoods by neighborhoodStorage.neighborhoods.collectAsState()
+
     var customerName by remember { mutableStateOf("محمد - زبون سور الغزلان") }
     var customerPhone by remember { mutableStateOf("0550123456") }
-    var selectedNeighborhood by remember { mutableStateOf(SourElGhozlaneConstants.NEIGHBORHOODS.first().nameArabic) }
+    var selectedNeighborhood by remember(dynamicNeighborhoods) {
+        mutableStateOf(dynamicNeighborhoods.firstOrNull()?.nameArabic ?: SourElGhozlaneConstants.NEIGHBORHOODS.first().nameArabic)
+    }
     var addressDescription by remember { mutableStateOf("مقابل صيدلية الأمل، العمارة ب، الطابق 2") }
     var selectedDriver by remember { mutableStateOf(drivers.firstOrNull()) }
+
+    // Loyalty Points state
+    val pointsBalance by (repository.loyaltyStorage?.pointsBalance ?: kotlinx.coroutines.flow.MutableStateFlow(0)).collectAsState()
+    var selectedDiscountPoints by remember { mutableIntStateOf(0) }
+    val deliveryDiscount = when (selectedDiscountPoints) {
+        100 -> minOf(100, 200)
+        200 -> 200
+        else -> 0
+    }
+    val effectiveDeliveryFee = maxOf(0, 200 - deliveryDiscount)
+    val totalWithDelivery = subtotal + effectiveDeliveryFee
 
     Box(
         modifier = modifier
@@ -909,7 +1009,7 @@ fun DriverSelectionSheet(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            items(SourElGhozlaneConstants.NEIGHBORHOODS) { n ->
+                            items(dynamicNeighborhoods) { n ->
                                 val isSelected = selectedNeighborhood == n.nameArabic
                                 FilterChip(
                                     selected = isSelected,
@@ -973,6 +1073,98 @@ fun DriverSelectionSheet(
                         }
                     }
 
+                    // ==============================================================
+                    // بطاقة نقاط الولاء وخصم التوصيل
+                    // ==============================================================
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)),
+                            border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("⭐", fontSize = 18.sp)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "نقاط الولاء وخصم التوصيل",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = Color(0xFF92400E)
+                                        )
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = Color(0xFFFEF3C7)
+                                    ) {
+                                        Text(
+                                            text = "رصيدك: $pointsBalance نقطة",
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 12.sp,
+                                            color = Color(0xFFB45309),
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                if (pointsBalance >= 100) {
+                                    Text(
+                                        text = "اختر خصم التوصيل المتاح لرصيدك:",
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF78350F)
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+
+                                    LazyRow(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        item {
+                                            FilterChip(
+                                                selected = selectedDiscountPoints == 0,
+                                                onClick = { selectedDiscountPoints = 0 },
+                                                label = { Text("بدون خصم", fontSize = 11.sp) }
+                                            )
+                                        }
+
+                                        item {
+                                            FilterChip(
+                                                selected = selectedDiscountPoints == 100,
+                                                onClick = { selectedDiscountPoints = 100 },
+                                                label = { Text("خصم 100 دج (-100 نقطة) 🏷️", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                                            )
+                                        }
+
+                                        if (pointsBalance >= 200) {
+                                            item {
+                                                FilterChip(
+                                                    selected = selectedDiscountPoints == 200,
+                                                    onClick = { selectedDiscountPoints = 200 },
+                                                    label = { Text("توصيل مجاني 0 دج! (-200 نقطة) 🎉", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                                                )
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Text(
+                                        text = "ستكسب +50 نقطة فور إتمام هذا الطلب! اجمع 100 نقطة للحصول على خصم 100 دج على تكلفة التوصيل القادمة.",
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF92400E),
+                                        lineHeight = 15.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     // Summary
                     item {
                         Surface(
@@ -982,17 +1174,39 @@ fun DriverSelectionSheet(
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("ثمن الوجبات:", fontSize = 12.sp)
+                                    Text("ثمن الوجبات / المنتجات:", fontSize = 12.sp)
                                     Text("$subtotal دج", fontSize = 12.sp)
                                 }
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("سعر التوصيل (ثابت):", fontSize = 12.sp)
-                                    Text("200 دج", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("سعر التوصيل:", fontSize = 12.sp)
+                                    if (deliveryDiscount > 0) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                text = "200 دج ",
+                                                fontSize = 11.sp,
+                                                style = TextStyle(textDecoration = TextDecoration.LineThrough),
+                                                color = MaterialTheme.colorScheme.outline
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = if (effectiveDeliveryFee == 0) "مجاني 0 دج (خصم $deliveryDiscount دج) 🎉" else "$effectiveDeliveryFee دج (خصم $deliveryDiscount دج)",
+                                                fontSize = 12.sp,
+                                                color = Color(0xFF16A34A),
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    } else {
+                                        Text("200 دج", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                                 HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Text("المجموع الكلي (عند الاستلام):", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                    Text("${subtotal + 200} دج", fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = MaterialTheme.colorScheme.primary)
+                                    Text("$totalWithDelivery دج", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = MaterialTheme.colorScheme.primary)
                                 }
                             }
                         }
@@ -1003,16 +1217,24 @@ fun DriverSelectionSheet(
 
                 Button(
                     onClick = {
-                        onConfirmOrder(customerName, customerPhone, selectedNeighborhood, addressDescription, selectedDriver)
+                        onConfirmOrder(
+                            customerName,
+                            customerPhone,
+                            selectedNeighborhood,
+                            addressDescription,
+                            selectedDriver,
+                            deliveryDiscount,
+                            selectedDiscountPoints
+                        )
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Text(
-                        text = "تأكيد الطلب الآن (الدفع عند الاستلام) ✅",
+                        text = if (deliveryDiscount > 0) "تأكيد الطلب بخصم $deliveryDiscount دج (الدفع $totalWithDelivery دج) ✅" else "تأكيد الطلب الآن (الدفع عند الاستلام $totalWithDelivery دج) ✅",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
+                        fontSize = 13.sp,
                         modifier = Modifier.padding(vertical = 4.dp)
                     )
                 }
@@ -1494,6 +1716,361 @@ fun CustomerOrderHistoryScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun CustomerProfileScreen(
+    customerName: String = "محمد - زبون سور الغزلان",
+    customerPhone: String = "0550123456",
+    neighborhood: String = "وسط المدينة، سور الغزلان",
+    loyaltyStorage: CustomerLoyaltyStorage?,
+    orderHistoryCount: Int = 0,
+    onBack: () -> Unit,
+    onOpenOrderHistory: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    BackHandler { onBack() }
+
+    val pointsBalance by (loyaltyStorage?.pointsBalance ?: kotlinx.coroutines.flow.MutableStateFlow(0)).collectAsState()
+    val transactions by (loyaltyStorage?.transactions ?: kotlinx.coroutines.flow.MutableStateFlow(emptyList())).collectAsState()
+
+    val tierTitle = when {
+        pointsBalance >= 500 -> "المستوى الذهبي 🥇"
+        pointsBalance >= 200 -> "المستوى الفضي 🥈"
+        else -> "المستوى البرونزي 🥉"
+    }
+
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        contentPadding = PaddingValues(bottom = 60.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Top Navigation Header
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "الرجوع"
+                    )
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Column {
+                    Text(
+                        text = "الملف الشخصي ونقاط الولاء ⭐",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 17.sp
+                    )
+                    Text(
+                        text = "اكسب نقاطاً مع كل طلب واستبدلها بخصم التوصيل",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
+            }
+        }
+
+        // 1. بطاقة نقاط الولاء الذهبية الفاخرة (Golden Loyalty Card)
+        item {
+            Card(
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFD97706)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                listOf(Color(0xFFF59E0B), Color(0xFFD97706), Color(0xFFB45309))
+                            )
+                        )
+                        .padding(20.dp)
+                ) {
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("🌟", fontSize = 24.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = "بطاقة ولاء SGdelivery",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = Color.White.copy(alpha = 0.9f)
+                                    )
+                                    Text(
+                                        text = "مدينة سور الغزلان",
+                                        fontSize = 11.sp,
+                                        color = Color.White.copy(alpha = 0.75f)
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = Color.White.copy(alpha = 0.25f)
+                            ) {
+                                Text(
+                                    text = tierTitle,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        Text(
+                            text = "رصيدك الحالي من النقاط:",
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = 0.85f)
+                        )
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(
+                                text = "$pointsBalance",
+                                fontSize = 36.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "نقطة ولاء",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White.copy(alpha = 0.9f),
+                                modifier = Modifier.padding(bottom = 6.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.3f))
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "القيمة: تعادل $pointsBalance دج خصم مباشر على التوصيل",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = "نشطة ومتاحة ✅",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFEF08A)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. بطاقة بيانات المستخدم
+        item {
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(46.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(26.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(customerName, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text("📱 $customerPhone • 📍 $neighborhood", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "إجمالي الطلبات السابقة: $orderHistoryCount طلبات",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+
+                        TextButton(onClick = onOpenOrderHistory) {
+                            Text("فتح سجل الطلبات 📋", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. كيفية عمل برنامج نقاط الولاء
+        item {
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "كيف يعمل نظام نقاط الولاء في سور الغزلان؟",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("📦", fontSize = 18.sp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "اكسب 50 نقطة تلقائياً مع كل طلب مكتمل تستلمه بنجاح.",
+                            fontSize = 12.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🏷️", fontSize = 18.sp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "استبدل 100 نقطة بخصم 100 دج على تكلفة التوصيل (يصبح 100 دج بدل 200 دج).",
+                            fontSize = 12.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🛵", fontSize = 18.sp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "استبدل 200 نقطة بتوصيل مجاني تماماً 0 دج لأي متجر أو مطعم!",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF16A34A)
+                        )
+                    }
+                }
+            }
+        }
+
+        // 4. سجل حركات النقاط (Transactions History)
+        item {
+            Text(
+                text = "سجل حركات النقاط (${transactions.size}):",
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
+        }
+
+        if (transactions.isEmpty()) {
+            item {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "لا توجد حركات نقاط مسجلة بعد. سيتم تسجيل نقاطك المكتسبة والمستبدلة هنا.",
+                        modifier = Modifier.padding(16.dp),
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
+            }
+        } else {
+            items(transactions) { tx ->
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = CircleShape,
+                                color = if (tx.isEarned) Color(0xFFDCFCE7) else Color(0xFFFFEDD5),
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(if (tx.isEarned) "⭐" else "🏷️", fontSize = 16.sp)
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(tx.title, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Text("📅 ${tx.date}", fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (tx.isEarned) Color(0xFFDCFCE7) else Color(0xFFFFEDD5)
+                        ) {
+                            Text(
+                                text = if (tx.isEarned) "+${tx.points} نقطة" else "${tx.points} نقطة",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = if (tx.isEarned) Color(0xFF166534) else Color(0xFFC2410C),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Return button
+        item {
+            Button(
+                onClick = onBack,
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth().height(46.dp)
+            ) {
+                Text("العودة للتسوق واكتساب النقاط 🛍️", fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
         }
     }

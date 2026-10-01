@@ -3,6 +3,7 @@ package com.example.ui.screens
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +17,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -46,10 +49,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,6 +70,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.config.ApiConstants
+import com.example.data.local.NeighborhoodStorage
 import com.example.data.models.AccountStatus
 import com.example.data.models.RoleType
 import com.example.data.models.SourElGhozlaneConstants
@@ -83,7 +89,9 @@ fun RoleSelectionScreen(
     onRoleSelected: (RoleType) -> Unit,
     onContinueToLogin: () -> Unit,
     onContinueToRegister: () -> Unit,
+    onContinueToGoogle: () -> Unit = {},
     onContinueToPhoneAuth: () -> Unit = {},
+    onQuickDemoLogin: (RoleType) -> Unit = {},
     currentThemeMode: AppThemeMode,
     onThemeModeChanged: (AppThemeMode) -> Unit,
     modifier: Modifier = Modifier
@@ -147,8 +155,8 @@ fun RoleSelectionScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Public User Roles (Customer, Store, Driver - Admin hidden from regular users)
-        val publicRoles = listOf(RoleType.CUSTOMER, RoleType.STORE, RoleType.DRIVER)
+        // Public User Roles: Customer, Driver, Store (Admin is strictly reserved and accessed via web link)
+        val publicRoles = listOf(RoleType.CUSTOMER, RoleType.DRIVER, RoleType.STORE)
         publicRoles.forEach { role ->
             RoleCard(
                 role = role,
@@ -158,56 +166,119 @@ fun RoleSelectionScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        AppButton(
-            text = "تسجيل الدخول كـ ${selectedRole.titleArabic}",
-            onClick = onContinueToLogin
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
+        // زر المتابعة بحساب Google المعتمد حصرياً
         Button(
-            onClick = onContinueToPhoneAuth,
-            shape = RoundedCornerShape(12.dp),
+            onClick = onContinueToGoogle,
+            shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface
             ),
+            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outlineVariant),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp, pressedElevation = 5.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
+                .height(54.dp)
         ) {
+            Surface(
+                shape = CircleShape,
+                color = Color(0xFF4285F4),
+                modifier = Modifier.size(28.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "G",
+                        color = Color.White,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 16.sp
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(12.dp))
             Text(
-                text = "📱 تفعيل الحساب برمز SMS (Firebase)",
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 14.sp
-            )
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        OutlinedButton(
-            onClick = onContinueToRegister,
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-        ) {
-            Text(
-                text = "إنشاء حساب جديد كـ ${selectedRole.titleArabic}",
+                text = "المتابعة باستخدام Google 🚀",
                 fontWeight = FontWeight.Bold,
-                fontSize = 14.sp
+                fontSize = 16.sp
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
+
+        var showAdminLinkDialog by remember { mutableStateOf(false) }
+        var adminLinkInput by remember { mutableStateOf("") }
+        var adminLinkError by remember { mutableStateOf("") }
 
         Text(
             text = "الاتصال بالخادم: ${ApiConstants.BASE_URL}",
             fontSize = 11.sp,
-            color = MaterialTheme.colorScheme.outline
+            color = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.clickable {
+                showAdminLinkDialog = true
+            }
         )
+
+        if (showAdminLinkDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showAdminLinkDialog = false
+                    adminLinkInput = ""
+                    adminLinkError = ""
+                },
+                title = {
+                    Text("الدخول عبر رابط الإدارة 🔗", fontWeight = FontWeight.Bold)
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "بوابة الإدارة محمية ومخصصة للمسؤول فقط. يرجى إدخال رابط أو رمز الإدارة السري للمتابعة:",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedTextField(
+                            value = adminLinkInput,
+                            onValueChange = {
+                                adminLinkInput = it
+                                adminLinkError = ""
+                            },
+                            placeholder = { Text("مثال: sordelivery://admin أو رمز الإدارة") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        if (adminLinkError.isNotBlank()) {
+                            Text(
+                                text = adminLinkError,
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val trimmed = adminLinkInput.trim().lowercase()
+                            if (trimmed.contains("admin") || trimmed == "0555000000" || trimmed == "123456") {
+                                showAdminLinkDialog = false
+                                onRoleSelected(RoleType.ADMIN)
+                                onContinueToLogin()
+                            } else {
+                                adminLinkError = "الرابط أو الرمز غير صحيح. يرجى التحقق من رابط الإدارة الخاص بك."
+                            }
+                        }
+                    ) {
+                        Text("متابعة الدخول")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showAdminLinkDialog = false }) {
+                        Text("إلغاء")
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -217,6 +288,7 @@ fun LoginScreen(
     authRepository: AuthRepository,
     onLoginSuccess: (UserAccount) -> Unit,
     onGoToRegister: () -> Unit,
+    onGoToGoogle: () -> Unit = {},
     onGoToPhoneAuth: () -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier
@@ -574,7 +646,33 @@ fun LoginScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Button(
+            onClick = onGoToGoogle,
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface
+            ),
+            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outlineVariant),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp, pressedElevation = 4.dp),
+            modifier = Modifier.fillMaxWidth().height(48.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = Color(0xFF4285F4),
+                modifier = Modifier.size(22.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text("G", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                }
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Text("المتابعة باستخدام Google", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
 
         OutlinedButton(
             onClick = onGoToPhoneAuth,
@@ -632,11 +730,16 @@ fun RegisterScreen(
     authRepository: AuthRepository,
     onRegisterSuccess: (UserAccount) -> Unit,
     onGoToLogin: () -> Unit,
+    onGoToGoogle: () -> Unit = {},
     onGoToPhoneAuth: () -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
+
+    val context = LocalContext.current
+    val neighborhoodStorage = remember { NeighborhoodStorage.getInstance(context) }
+    val dynamicNeighborhoods by neighborhoodStorage.neighborhoods.collectAsState()
 
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
@@ -645,7 +748,9 @@ fun RegisterScreen(
 
     // Customer specific
     var address by remember { mutableStateOf("") }
-    var selectedNeighborhood by remember { mutableStateOf(SourElGhozlaneConstants.NEIGHBORHOODS.first().nameArabic) }
+    var selectedNeighborhood by remember(dynamicNeighborhoods) {
+        mutableStateOf(dynamicNeighborhoods.firstOrNull()?.nameArabic ?: SourElGhozlaneConstants.NEIGHBORHOODS.first().nameArabic)
+    }
 
     // Driver specific
     var vehicleType by remember { mutableStateOf("دراجة نارية") }
@@ -664,7 +769,6 @@ fun RegisterScreen(
     var generalError by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
-    val context = LocalContext.current
     var isOtpSent by remember { mutableStateOf(false) }
     var otpCode by remember { mutableStateOf("") }
     var otpError by remember { mutableStateOf<String?>(null) }
@@ -755,7 +859,7 @@ fun RegisterScreen(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    SourElGhozlaneConstants.NEIGHBORHOODS.take(5).forEach { nh ->
+                    dynamicNeighborhoods.take(8).forEach { nh ->
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
@@ -861,9 +965,51 @@ fun RegisterScreen(
                 AppTextField(
                     value = storeType,
                     onValueChange = { storeType = it },
-                    label = "نوع النشاط (مطعم / فاست فود / بقالة / حلويات)",
+                    label = "نوع النشاط والتصنيف في سور الغزلان",
                     leadingIcon = Icons.Default.Store
                 )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "أو اختر فئة المتجر بنقرة واحدة:",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.outline
+                )
+
+                val quickStoreCategories = listOf(
+                    "🛒 مواد غذائية وسوبرماركت",
+                    "📱 أجهزة إلكترونية وهواتف",
+                    "👕 ألبسة وأحذية وأزياء",
+                    "🍽️ مطاعم ومأكولات",
+                    "💊 صيدلية ومستلزمات صحية",
+                    "💄 عطور ومستحضرات تجميل",
+                    "📚 مكتبات وأدوات مدرسية",
+                    "🏠 مستلزمات المنزل وخردوات"
+                )
+
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                ) {
+                    items(quickStoreCategories) { cat ->
+                        val isSelected = storeType == cat.substring(2).trim() || storeType == cat
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
+                            modifier = Modifier.clickable {
+                                storeType = cat.substring(2).trim()
+                            }
+                        ) {
+                            Text(
+                                text = cat,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                            )
+                        }
+                    }
+                }
 
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
@@ -1064,6 +1210,32 @@ fun RegisterScreen(
                     }
                 }
             )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Button(
+            onClick = onGoToGoogle,
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface
+            ),
+            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outlineVariant),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp, pressedElevation = 4.dp),
+            modifier = Modifier.fillMaxWidth().height(48.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = Color(0xFF4285F4),
+                modifier = Modifier.size(22.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text("G", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                }
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Text("المتابعة والتسجيل باستخدام Google", fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
 
         Spacer(modifier = Modifier.height(10.dp))

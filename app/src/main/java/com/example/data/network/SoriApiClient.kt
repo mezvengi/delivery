@@ -74,14 +74,44 @@ data class TokensDto(
 data class ApiUserDto(
     val id: Long? = null,
     val phone: String? = null,
+    val email: String? = null,
+    val firebase_uid: String? = null,
+    val photo_url: String? = null,
     val full_name: String? = null,
     val name: String? = null,
     val role: String? = null,
     val status: String? = null, // "active" | "pending"
+    val phone_verified: Boolean? = false,
     val address: String? = null,
     val vehicle_type: String? = null,
     val license_plate: String? = null,
     val store_category: String? = null
+)
+
+data class GoogleAuthRequest(
+    val idToken: String,
+    val role: String? = "customer"
+)
+
+data class GoogleAuthResponse(
+    val success: Boolean = true,
+    val token: String? = null,
+    val needs_phone: Boolean = false,
+    val user: ApiUserDto? = null,
+    val message: String? = null,
+    val error: String? = null
+)
+
+data class UpdatePhoneRequest(
+    val phone: String
+)
+
+data class UpdatePhoneResponse(
+    val success: Boolean = true,
+    val token: String? = null,
+    val message: String? = null,
+    val user: ApiUserDto? = null,
+    val error: String? = null
 )
 
 data class VerifyOtpDtoResponse(
@@ -162,7 +192,8 @@ data class ProductDto(
     val price_da: Int? = null,
     val price: Int? = null,
     val category: String? = null,
-    val is_available: Boolean? = true
+    val is_available: Boolean? = true,
+    val image_url: String? = null
 )
 
 data class ProductsResponse(
@@ -172,7 +203,11 @@ data class ProductsResponse(
 data class AddProductRequest(
     val name: String,
     val description: String? = null,
-    val price_da: Int
+    val price: Int,
+    val price_da: Int = price,
+    val category: String? = "وجبات",
+    val image_url: String? = null,
+    val shop_id: Long? = null
 )
 
 // ==============================================================================
@@ -239,6 +274,9 @@ data class OrderDetailDto(
     val customer_name: String? = null,
     val customer_phone: String? = null,
     val shop_id: Long? = null,
+    val shop_name: String? = null,
+    val shop_neighborhood: String? = null,
+    val shop_phone: String? = null,
     val driver_id: Long? = null,
     val neighborhood: String? = null,
     val delivery_address: String? = null,
@@ -246,12 +284,71 @@ data class OrderDetailDto(
     val customer_lat: Double? = null,
     val customer_lon: Double? = null,
     val status: String = "CONFIRMED",
+    val delivery_leg: String? = "TO_SHOP", // "TO_SHOP" | "TO_CUSTOMER" | "DELIVERED"
+    val is_manual_shop_order: Boolean? = false,
+    val estimated_distance_km: Double? = null,
+    val estimated_duration_min: Int? = null,
     val subtotal: Int = 0,
     val delivery_fee: Int = 200,
     val total: Int = 200,
     val payment_method: String? = "COD",
     val notes: String? = null,
     val created_at: String? = null
+)
+
+data class CalculateFeeRequest(
+    val shopLat: Double,
+    val shopLon: Double,
+    val customerLat: Double,
+    val customerLon: Double
+)
+
+data class CalculateFeeResponse(
+    val success: Boolean = true,
+    val distance_km: Double = 0.0,
+    val delivery_fee: Int = 200,
+    val estimated_duration_min: Int = 15,
+    val currency: String = "DZD"
+)
+
+data class ManualShopOrderRequest(
+    val shop_id: Long,
+    val customer_name: String,
+    val customer_phone: String,
+    val neighborhood: String,
+    val address_description: String,
+    val items_description: String,
+    val total_amount: Int,
+    val notes: String? = null
+)
+
+data class AcceptOrderRequest(
+    val driver_id: Long
+)
+
+data class AcceptOrderResponse(
+    val success: Boolean = true,
+    val message: String? = null,
+    val order: OrderDetailDto? = null,
+    val error: String? = null
+)
+
+data class UpdateDeliveryLegRequest(
+    val leg: String, // "TO_SHOP" | "TO_CUSTOMER" | "FINISHED"
+    val driver_id: Long
+)
+
+data class DriverStatsResponse(
+    val success: Boolean = true,
+    val driver_id: Long = 0,
+    val name: String? = null,
+    val phone: String? = null,
+    val vehicle_type: String? = null,
+    val license_plate: String? = null,
+    val drivers_license: String? = null,
+    val completed_orders: Int = 0,
+    val active_orders: Int = 0,
+    val max_active_orders: Int = 2
 )
 
 data class CreateOrderResponse(
@@ -316,6 +413,12 @@ interface SoriApiService {
     @POST("/api/auth/verify-phone")
     suspend fun verifyPhone(@Body request: VerifyPhoneRequest): VerifyOtpDtoResponse
 
+    @POST("/api/auth/google")
+    suspend fun authenticateWithGoogle(@Body request: GoogleAuthRequest): GoogleAuthResponse
+
+    @PATCH("/api/users/me/phone")
+    suspend fun updatePhone(@Body request: UpdatePhoneRequest): UpdatePhoneResponse
+
     @POST("/api/auth/login")
     suspend fun login(@Body request: LoginDtoRequest): VerifyOtpDtoResponse
 
@@ -348,6 +451,27 @@ interface SoriApiService {
     // 4. Orders
     @POST("/api/orders")
     suspend fun createOrder(@Body request: CreateOrderRequest): CreateOrderResponse
+
+    @POST("/api/orders/calculate-fee")
+    suspend fun calculateDeliveryFee(@Body request: CalculateFeeRequest): CalculateFeeResponse
+
+    @POST("/api/orders/shop-manual")
+    suspend fun createManualShopOrder(@Body request: ManualShopOrderRequest): CreateOrderResponse
+
+    @POST("/api/orders/{orderId}/accept")
+    suspend fun acceptOrder(
+        @Path("orderId") orderId: Long,
+        @Body request: AcceptOrderRequest
+    ): AcceptOrderResponse
+
+    @PATCH("/api/orders/{orderId}/leg")
+    suspend fun updateDeliveryLeg(
+        @Path("orderId") orderId: Long,
+        @Body request: UpdateDeliveryLegRequest
+    ): OrderDetailDto
+
+    @GET("/api/drivers/{driverId}/stats")
+    suspend fun getDriverStats(@Path("driverId") driverId: Long): DriverStatsResponse
 
     @GET("/api/orders/{orderId}")
     suspend fun getOrderStatus(@Path("orderId") orderId: Long): OrderDetailDto

@@ -20,6 +20,9 @@ data class UserAccount(
     val role: RoleType,
     val status: AccountStatus,
     val token: String,
+    val email: String = "",
+    val photoUrl: String = "",
+    val firebaseUid: String = "",
     val address: String = "",
     val neighborhood: String = "وسط المدينة",
     // Driver specific
@@ -32,6 +35,6 @@ data class UserAccount(
     val storeType: String = "",
     val storeLat: Double = SourElGhozlaneConstants.CENTER_LAT,
     val storeLon: Double = SourElGhozlaneConstants.CENTER_LON,
-    val phoneVerified: Boolean = true,
+    val phoneVerified: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 )

@@ -57,13 +57,26 @@ router.patch('/:id/status', authMiddleware(['driver', 'admin']), async (req, res
       `UPDATE driver_locations
        SET is_online = COALESCE($1, is_online),
            vehicle_type = COALESCE($2, vehicle_type),
-           lat = COALESCE($3, lat),
-           lon = COALESCE($4, lon),
+           license_plate = COALESCE($3, license_plate),
+           lat = COALESCE($4, lat),
+           lon = COALESCE($5, lon),
            updated_at = NOW()
-       WHERE driver_id = $5
+       WHERE driver_id = $6
        RETURNING *`,
-      [is_online, vehicle_type, lat, lon, id]
+      [is_online, vehicle_type, req.body.license_plate, lat, lon, id]
     );
+
+    // Also update users table
+    if (vehicle_type || req.body.license_plate || req.body.drivers_license) {
+      await db.query(
+        `UPDATE users
+         SET vehicle_type = COALESCE($1, vehicle_type),
+             license_plate = COALESCE($2, license_plate),
+             drivers_license = COALESCE($3, drivers_license)
+         WHERE id = $4`,
+        [vehicle_type, req.body.license_plate, req.body.drivers_license, id]
+      );
+    }
 
     broadcastLocationUpdate({
       driverId: parseInt(id),
@@ -104,6 +117,39 @@ router.post('/:id/location', authMiddleware(['driver', 'admin']), async (req, re
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'تعذر تحديث الإحداثيات' });
+  }
+});
+
+// Get driver statistics and vehicle profile (Deliverio feature)
+router.get('/:id/stats', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const userRes = await db.query(
+      `SELECT id, name, phone, vehicle_type, license_plate, drivers_license, completed_orders_count FROM users WHERE id = $1`,
+      [id]
+    );
+    const activeOrdersRes = await db.query(
+      `SELECT COUNT(*) FROM orders WHERE driver_id = $1 AND status IN ('READY_FOR_PICKUP', 'ON_THE_WAY')`,
+      [id]
+    );
+
+    const user = userRes.rows[0] || {};
+    const activeCount = parseInt(activeOrdersRes.rows[0]?.count || 0, 10);
+
+    res.json({
+      success: true,
+      driver_id: parseInt(id),
+      name: user.name,
+      phone: user.phone,
+      vehicle_type: user.vehicle_type || 'دراجة نارية SYM',
+      license_plate: user.license_plate || '00123-116-10',
+      drivers_license: user.drivers_license || 'DL-2024-DZ',
+      completed_orders: user.completed_orders_count || 0,
+      active_orders: activeCount,
+      max_active_orders: 2,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'تعذر جلب إحصائيات السائق' });
   }
 });
 

@@ -1,10 +1,13 @@
 package com.example
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.config.ApiConstants
+import com.example.data.local.CustomerLoyaltyStorage
 import com.example.data.local.CustomerOrderHistoryStorage
 import com.example.data.local.SourDeliveryDatabase
 import com.example.data.local.entities.ShopEntity
@@ -56,10 +60,10 @@ import com.example.data.models.RoleType
 import com.example.data.models.UserRole
 import com.example.data.repository.AuthRepository
 import com.example.data.repository.DeliveryRepository
-import com.example.ui.components.RoleSwitcherBar
 import com.example.ui.screens.AdminDashboardScreen
 import com.example.ui.screens.CustomerLiveTrackingScreen
 import com.example.ui.screens.CustomerOrderHistoryScreen
+import com.example.ui.screens.CustomerProfileScreen
 import com.example.ui.screens.CustomerShopDetailScreen
 import com.example.ui.screens.CustomerShopListScreen
 import com.example.ui.screens.DriverDashboardScreen
@@ -69,15 +73,18 @@ import com.example.ui.screens.RegisterScreen
 import com.example.ui.screens.RoleSelectionScreen
 import com.example.ui.screens.ShopDashboardScreen
 import com.example.ui.screens.PhoneAuthScreen
+import com.example.ui.screens.GoogleSignInScreen
 import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.ThemeManager
 import com.example.ui.viewmodel.PhoneAuthViewModel
+import com.example.ui.viewmodel.GoogleAuthViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 
 enum class AuthScreenState {
     ROLE_SELECTION,
+    GOOGLE_SIGN_IN,
     LOGIN,
     REGISTER,
     FIREBASE_PHONE_AUTH
@@ -87,7 +94,8 @@ enum class CustomerScreenState {
     SHOP_LIST,
     SHOP_DETAIL,
     LIVE_TRACKING,
-    ORDER_HISTORY
+    ORDER_HISTORY,
+    PROFILE
 }
 
 class MainActivity : ComponentActivity() {
@@ -95,14 +103,21 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        try {
+            com.google.firebase.FirebaseApp.initializeApp(applicationContext)
+        } catch (e: Throwable) {
+            android.util.Log.w("MainActivity", "FirebaseApp init skipped: ${e.message}")
+        }
+
         val database = SourDeliveryDatabase.getDatabase(applicationContext)
 
         setContent {
             val scope = rememberCoroutineScope()
             val themeManager = remember { ThemeManager(applicationContext) }
             val authRepository = remember { AuthRepository(applicationContext) }
+            val loyaltyStorage = remember { CustomerLoyaltyStorage(applicationContext) }
             val orderHistoryStorage = remember { CustomerOrderHistoryStorage(applicationContext) }
-            val repository = remember { DeliveryRepository(database, scope, orderHistoryStorage) }
+            val repository = remember { DeliveryRepository(database, scope, orderHistoryStorage, loyaltyStorage) }
 
             val isDarkTheme = themeManager.isDarkThemeActive()
 
@@ -110,7 +125,8 @@ class MainActivity : ComponentActivity() {
                 SGdeliveryApp(
                     repository = repository,
                     authRepository = authRepository,
-                    themeManager = themeManager
+                    themeManager = themeManager,
+                    intent = intent
                 )
             }
         }
@@ -121,15 +137,26 @@ class MainActivity : ComponentActivity() {
 fun SGdeliveryApp(
     repository: DeliveryRepository,
     authRepository: AuthRepository,
-    themeManager: ThemeManager
+    themeManager: ThemeManager,
+    intent: Intent? = null
 ) {
     val currentUser by authRepository.currentUser.collectAsState()
     val currentThemeMode by themeManager.themeMode.collectAsState()
 
-    var authScreenState by remember { mutableStateOf(AuthScreenState.ROLE_SELECTION) }
-    var selectedAuthRole by remember { mutableStateOf(RoleType.CUSTOMER) }
+    val isAdminDeepLink = remember(intent) {
+        val uriStr = intent?.data?.toString() ?: ""
+        uriStr.contains("admin", ignoreCase = true)
+    }
+
+    var authScreenState by remember(isAdminDeepLink) {
+        mutableStateOf(if (isAdminDeepLink) AuthScreenState.LOGIN else AuthScreenState.ROLE_SELECTION)
+    }
+    var selectedAuthRole by remember(isAdminDeepLink) {
+        mutableStateOf(if (isAdminDeepLink) RoleType.ADMIN else RoleType.CUSTOMER)
+    }
     val scope = rememberCoroutineScope()
     val phoneAuthViewModel: PhoneAuthViewModel = viewModel()
+    val googleAuthViewModel = remember { GoogleAuthViewModel(authRepository) }
 
     // If not logged in, show Auth Flow
     if (currentUser == null) {
@@ -140,9 +167,27 @@ fun SGdeliveryApp(
                     onRoleSelected = { selectedAuthRole = it },
                     onContinueToLogin = { authScreenState = AuthScreenState.LOGIN },
                     onContinueToRegister = { authScreenState = AuthScreenState.REGISTER },
+                    onContinueToGoogle = { authScreenState = AuthScreenState.GOOGLE_SIGN_IN },
                     onContinueToPhoneAuth = { authScreenState = AuthScreenState.FIREBASE_PHONE_AUTH },
+                    onQuickDemoLogin = { role ->
+                        authRepository.loginWithDemoRole(role)
+                    },
                     currentThemeMode = currentThemeMode,
                     onThemeModeChanged = { themeManager.setThemeMode(it) }
+                )
+            }
+
+            AuthScreenState.GOOGLE_SIGN_IN -> {
+                GoogleSignInScreen(
+                    role = selectedAuthRole,
+                    viewModel = googleAuthViewModel,
+                    onAuthSuccess = { user ->
+                        // Automatically routed via currentUser StateFlow in AuthRepository
+                    },
+                    onBackClick = {
+                        googleAuthViewModel.resetState()
+                        authScreenState = AuthScreenState.ROLE_SELECTION
+                    }
                 )
             }
 
@@ -154,6 +199,7 @@ fun SGdeliveryApp(
                         // Automatically routed via currentUser state flow
                     },
                     onGoToRegister = { authScreenState = AuthScreenState.REGISTER },
+                    onGoToGoogle = { authScreenState = AuthScreenState.GOOGLE_SIGN_IN },
                     onGoToPhoneAuth = { authScreenState = AuthScreenState.FIREBASE_PHONE_AUTH },
                     onBack = { authScreenState = AuthScreenState.ROLE_SELECTION }
                 )
@@ -167,6 +213,7 @@ fun SGdeliveryApp(
                         // Automatically routed via currentUser state flow
                     },
                     onGoToLogin = { authScreenState = AuthScreenState.LOGIN },
+                    onGoToGoogle = { authScreenState = AuthScreenState.GOOGLE_SIGN_IN },
                     onGoToPhoneAuth = { authScreenState = AuthScreenState.FIREBASE_PHONE_AUTH },
                     onBack = { authScreenState = AuthScreenState.ROLE_SELECTION }
                 )
@@ -212,16 +259,12 @@ fun SGdeliveryApp(
         return
     }
 
-    // Main App with Role Dispatcher
-    var currentRole by remember(user.role) {
-        mutableStateOf(
-            when (user.role) {
-                RoleType.CUSTOMER -> UserRole.CUSTOMER
-                RoleType.DRIVER -> UserRole.DRIVER
-                RoleType.STORE -> UserRole.SHOP
-                RoleType.ADMIN -> UserRole.ADMIN
-            }
-        )
+    // Main App: Strictly bound to the user's logged-in role chosen at login
+    val currentRole = when (user.role) {
+        RoleType.CUSTOMER -> UserRole.CUSTOMER
+        RoleType.DRIVER -> UserRole.DRIVER
+        RoleType.STORE -> UserRole.SHOP
+        RoleType.ADMIN -> UserRole.ADMIN
     }
 
     var customerScreenState by remember { mutableStateOf(CustomerScreenState.SHOP_LIST) }
@@ -235,6 +278,7 @@ fun SGdeliveryApp(
     val latestOrder by repository.getLatestOrder().collectAsState(initial = null)
     val simulatedEta by repository.simulatedEtaMinutes.collectAsState()
     val orderHistory by repository.getCustomerOrderHistory().collectAsState(initial = emptyList())
+    val loyaltyPoints by (repository.loyaltyStorage?.pointsBalance ?: kotlinx.coroutines.flow.MutableStateFlow(0)).collectAsState()
 
     val trackingOrder = orders.find { it.id == activeTrackingOrderId } ?: latestOrder
 
@@ -311,6 +355,32 @@ fun SGdeliveryApp(
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (currentRole == UserRole.CUSTOMER) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color(0xFFFFFBEB),
+                                    border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                                    modifier = Modifier.clickable {
+                                        customerScreenState = CustomerScreenState.PROFILE
+                                    }
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text("⭐", fontSize = 12.sp)
+                                        Spacer(modifier = Modifier.width(3.dp))
+                                        Text(
+                                            text = "$loyaltyPoints نقطة",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF92400E)
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+
                             // Quick Theme Mode Toggle
                             IconButton(onClick = {
                                 val nextMode = when (currentThemeMode) {
@@ -345,15 +415,6 @@ fun SGdeliveryApp(
                         }
                     }
                 }
-
-                // Role Switcher Bar (allows previewing dashboards, admin hidden from regular users)
-                RoleSwitcherBar(
-                    selectedRole = currentRole,
-                    onRoleSelected = { role ->
-                        currentRole = role
-                    },
-                    showAdmin = (user.role == RoleType.ADMIN)
-                )
             }
         }
     ) { innerPadding ->
@@ -376,7 +437,11 @@ fun SGdeliveryApp(
                                 onOpenOrderHistory = {
                                     customerScreenState = CustomerScreenState.ORDER_HISTORY
                                 },
-                                orderHistoryCount = orderHistory.size
+                                onOpenProfile = {
+                                    customerScreenState = CustomerScreenState.PROFILE
+                                },
+                                orderHistoryCount = orderHistory.size,
+                                loyaltyPoints = loyaltyPoints
                             )
                         }
 
@@ -428,7 +493,11 @@ fun SGdeliveryApp(
                                     onOpenOrderHistory = {
                                         customerScreenState = CustomerScreenState.ORDER_HISTORY
                                     },
-                                    orderHistoryCount = orderHistory.size
+                                    onOpenProfile = {
+                                        customerScreenState = CustomerScreenState.PROFILE
+                                    },
+                                    orderHistoryCount = orderHistory.size,
+                                    loyaltyPoints = loyaltyPoints
                                 )
                             }
                         }
@@ -454,9 +523,29 @@ fun SGdeliveryApp(
                                     onOpenOrderHistory = {
                                         customerScreenState = CustomerScreenState.ORDER_HISTORY
                                     },
-                                    orderHistoryCount = orderHistory.size
+                                    onOpenProfile = {
+                                        customerScreenState = CustomerScreenState.PROFILE
+                                    },
+                                    orderHistoryCount = orderHistory.size,
+                                    loyaltyPoints = loyaltyPoints
                                 )
                             }
+                        }
+
+                        CustomerScreenState.PROFILE -> {
+                            CustomerProfileScreen(
+                                customerName = user.name.ifEmpty { "محمد - زبون سور الغزلان" },
+                                customerPhone = user.phone.ifEmpty { "0550123456" },
+                                neighborhood = user.neighborhood.ifEmpty { "وسط المدينة، سور الغزلان" },
+                                loyaltyStorage = repository.loyaltyStorage,
+                                orderHistoryCount = orderHistory.size,
+                                onBack = {
+                                    customerScreenState = CustomerScreenState.SHOP_LIST
+                                },
+                                onOpenOrderHistory = {
+                                    customerScreenState = CustomerScreenState.ORDER_HISTORY
+                                }
+                            )
                         }
                     }
                 }
@@ -466,10 +555,13 @@ fun SGdeliveryApp(
                     if (activeShop != null) {
                         val shopOrders by repository.getOrdersForShop(activeShop.id)
                             .collectAsState(initial = emptyList())
+                        val shopProducts by repository.getProductsForShop(activeShop.id)
+                            .collectAsState(initial = emptyList())
 
                         ShopDashboardScreen(
                             shop = activeShop,
                             orders = shopOrders,
+                            products = shopProducts,
                             repository = repository
                         )
                     } else {

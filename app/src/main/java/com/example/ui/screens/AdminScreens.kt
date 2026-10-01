@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -16,17 +17,22 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.HourglassTop
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -37,12 +43,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -52,13 +60,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.config.ApiConstants
+import com.example.data.local.NeighborhoodStorage
 import com.example.data.local.entities.DriverEntity
 import com.example.data.local.entities.OrderEntity
 import com.example.data.local.entities.ShopEntity
+import com.example.data.models.Neighborhood
+import com.example.data.models.SourElGhozlaneConstants
 import com.example.data.network.PendingUserDto
 import com.example.data.repository.AuthRepository
 import kotlinx.coroutines.launch
@@ -81,6 +93,21 @@ fun AdminDashboardScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedRoleFilter by remember { mutableStateOf("all") }
     var userToDelete by remember { mutableStateOf<com.example.data.network.AdminUserDto?>(null) }
+
+    val context = LocalContext.current
+    val neighborhoodStorage = remember { NeighborhoodStorage.getInstance(context) }
+    val neighborhoods by neighborhoodStorage.neighborhoods.collectAsState()
+
+    var neighborhoodSearchQuery by remember { mutableStateOf("") }
+    var neighborhoodToEdit by remember { mutableStateOf<Neighborhood?>(null) }
+    var isAddNeighborhoodOpen by remember { mutableStateOf(false) }
+    var neighborhoodToDelete by remember { mutableStateOf<Neighborhood?>(null) }
+
+    var formNameArabic by remember { mutableStateOf("") }
+    var formNameFrench by remember { mutableStateOf("") }
+    var formLat by remember { mutableStateOf("") }
+    var formLon by remember { mutableStateOf("") }
+    var formError by remember { mutableStateOf("") }
 
     fun refreshPendingUsers() {
         if (authRepository == null) return
@@ -155,6 +182,24 @@ fun AdminDashboardScreen(
                 },
                 text = {
                     Text("إدارة الحسابات", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            )
+            Tab(
+                selected = selectedTab == 3,
+                onClick = { selectedTab = 3 },
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("إدارة الأحياء 🏘️", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        if (neighborhoods.isNotEmpty()) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "(${neighborhoods.size})",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
                 }
             )
         }
@@ -643,6 +688,36 @@ fun AdminDashboardScreen(
             }
         }
 
+        if (selectedTab == 3) {
+            AdminNeighborhoodsSection(
+                neighborhoods = neighborhoods,
+                searchQuery = neighborhoodSearchQuery,
+                onSearchChange = { neighborhoodSearchQuery = it },
+                onAddNew = {
+                    formNameArabic = ""
+                    formNameFrench = ""
+                    formLat = "36.1480"
+                    formLon = "3.6900"
+                    formError = ""
+                    isAddNeighborhoodOpen = true
+                },
+                onEdit = { n ->
+                    neighborhoodToEdit = n
+                    formNameArabic = n.nameArabic
+                    formNameFrench = n.nameFrench
+                    formLat = n.lat.toString()
+                    formLon = n.lon.toString()
+                    formError = ""
+                },
+                onDelete = { n ->
+                    neighborhoodToDelete = n
+                },
+                onResetDefaults = {
+                    neighborhoodStorage.resetToDefaults()
+                }
+            )
+        }
+
         userToDelete?.let { targetUser ->
             AlertDialog(
                 onDismissRequest = { userToDelete = null },
@@ -667,6 +742,340 @@ fun AdminDashboardScreen(
                     }
                 }
             )
+        }
+
+        // Dialog for Add / Edit Neighborhood
+        if (isAddNeighborhoodOpen || neighborhoodToEdit != null) {
+            val isEditing = neighborhoodToEdit != null
+            AlertDialog(
+                onDismissRequest = {
+                    isAddNeighborhoodOpen = false
+                    neighborhoodToEdit = null
+                    formError = ""
+                },
+                title = {
+                    Text(
+                        text = if (isEditing) "تعديل بيانات الحي ✏️" else "إضافة حي جديد لسور الغزلان ➕",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp
+                    )
+                },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = formNameArabic,
+                            onValueChange = {
+                                formNameArabic = it
+                                formError = ""
+                            },
+                            label = { Text("اسم الحي بالعربية *") },
+                            placeholder = { Text("مثال: حي 500 مسكن أو حي الرمل") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        OutlinedTextField(
+                            value = formNameFrench,
+                            onValueChange = { formNameFrench = it },
+                            label = { Text("الاسم بالفرنسية / وصف إضافي") },
+                            placeholder = { Text("مثال: 500 Logements") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = formLat,
+                                onValueChange = { formLat = it },
+                                label = { Text("خط العرض (Lat)") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = formLon,
+                                onValueChange = { formLon = it },
+                                label = { Text("خط الطول (Lon)") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        if (formError.isNotBlank()) {
+                            Text(
+                                text = formError,
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (formNameArabic.trim().isBlank()) {
+                                formError = "يرجى كتابة اسم الحي بالعربية"
+                                return@Button
+                            }
+                            val latVal = formLat.trim().toDoubleOrNull() ?: SourElGhozlaneConstants.CENTER_LAT
+                            val lonVal = formLon.trim().toDoubleOrNull() ?: SourElGhozlaneConstants.CENTER_LON
+
+                            val success = if (isEditing) {
+                                neighborhoodStorage.updateNeighborhood(
+                                    originalNameArabic = neighborhoodToEdit!!.nameArabic,
+                                    newNameArabic = formNameArabic.trim(),
+                                    newNameFrench = formNameFrench.trim(),
+                                    lat = latVal,
+                                    lon = lonVal
+                                )
+                            } else {
+                                neighborhoodStorage.addNeighborhood(
+                                    nameArabic = formNameArabic.trim(),
+                                    nameFrench = formNameFrench.trim(),
+                                    lat = latVal,
+                                    lon = lonVal
+                                )
+                            }
+
+                            if (!success && !isEditing) {
+                                formError = "هذا الحي موجود مسبقاً في القائمة"
+                            } else {
+                                isAddNeighborhoodOpen = false
+                                neighborhoodToEdit = null
+                                formError = ""
+                            }
+                        }
+                    ) {
+                        Text(if (isEditing) "حفظ التعديلات" else "إضافة الحي", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            isAddNeighborhoodOpen = false
+                            neighborhoodToEdit = null
+                            formError = ""
+                        }
+                    ) {
+                        Text("إلغاء")
+                    }
+                }
+            )
+        }
+
+        // Dialog for Delete Neighborhood
+        neighborhoodToDelete?.let { targetN ->
+            AlertDialog(
+                onDismissRequest = { neighborhoodToDelete = null },
+                title = { Text("تأكيد حذف الحي", fontWeight = FontWeight.Bold) },
+                text = { Text("هل أنت متأكد من حذف حي (${targetN.nameArabic}) من قائمة أحياء سور الغزلان؟") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            neighborhoodStorage.deleteNeighborhood(targetN.nameArabic)
+                            neighborhoodToDelete = null
+                        }
+                    ) {
+                        Text("نعم، حذف", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { neighborhoodToDelete = null }) {
+                        Text("إلغاء")
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun AdminNeighborhoodsSection(
+    neighborhoods: List<Neighborhood>,
+    searchQuery: String,
+    onSearchChange: (String) -> Unit,
+    onAddNew: () -> Unit,
+    onEdit: (Neighborhood) -> Unit,
+    onDelete: (Neighborhood) -> Unit,
+    onResetDefaults: () -> Unit
+) {
+    val filtered = remember(neighborhoods, searchQuery) {
+        if (searchQuery.isBlank()) {
+            neighborhoods
+        } else {
+            neighborhoods.filter {
+                it.nameArabic.contains(searchQuery, ignoreCase = true) ||
+                        it.nameFrench.contains(searchQuery, ignoreCase = true)
+            }
+        }
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        contentPadding = PaddingValues(bottom = 60.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "🏘️ إدارة أحياء بلدية سور الغزلان",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "يمكنك إضافة أحياء جديدة أو تعديل أسمائها وإحداثياتها الجغرافية لتظهر تلقائياً للزبائن والسائقين.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = onAddNew,
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("إضافة حي جديد", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        OutlinedButton(
+                            onClick = onResetDefaults,
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("استعادة الافتراضي", fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = onSearchChange,
+                placeholder = { Text("بحث في الأحياء المسجلة (${neighborhoods.size} حي)...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+        }
+
+        if (filtered.isEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                ) {
+                    Box(modifier = Modifier.padding(24.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text("لا يوجد حي يطابق بحثك", color = MaterialTheme.colorScheme.outline)
+                    }
+                }
+            }
+        } else {
+            items(filtered, key = { it.nameArabic }) { n ->
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.size(42.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.LocationOn,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = n.nameArabic,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                if (n.nameFrench.isNotBlank()) {
+                                    Text(
+                                        text = n.nameFrench,
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.outline
+                                    )
+                                }
+                                Text(
+                                    text = "الإحداثيات: ${n.lat}, ${n.lon}",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            FilledTonalButton(
+                                onClick = { onEdit(n) },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text("تعديل", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            IconButton(
+                                onClick = { onDelete(n) },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "حذف",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

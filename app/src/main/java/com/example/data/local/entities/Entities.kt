@@ -27,7 +27,8 @@ data class ProductEntity(
     val description: String,
     val price: Int, // In DZD (DA)
     val category: String,
-    val isAvailable: Boolean = true
+    val isAvailable: Boolean = true,
+    val imageUrl: String = ""
 )
 
 @Entity(tableName = "drivers")

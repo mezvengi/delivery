@@ -35,7 +35,9 @@ function generateToken(user) {
   return jwt.sign(
     {
       id: user.id,
-      phone: user.phone,
+      phone: user.phone || null,
+      email: user.email || null,
+      firebase_uid: user.firebase_uid || null,
       role: user.role,
       name: user.name,
       phone_verified: user.phone_verified === true,
