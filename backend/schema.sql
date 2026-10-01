@@ -188,3 +188,29 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_manual_shop_order BOOLEAN DEFAULT
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS estimated_distance_km NUMERIC(5, 2);
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS estimated_duration_min INT;
 
+-- 5. Neighborhoods Table (Sour El Ghozlane)
+CREATE TABLE IF NOT EXISTS neighborhoods (
+    id SERIAL PRIMARY KEY,
+    name_arabic VARCHAR(120) NOT NULL UNIQUE,
+    name_french VARCHAR(120),
+    lat NUMERIC(9, 6) DEFAULT 36.1480,
+    lon NUMERIC(9, 6) DEFAULT 3.6900,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO neighborhoods (name_arabic, name_french, lat, lon) VALUES
+('وسط المدينة', 'Centre Ville', 36.1480, 3.6900),
+('حي 500 مسكن', '500 Logements', 36.1512, 3.6945),
+('حي الشهداء', 'Cité Chouhada', 36.1450, 3.6850),
+('حي الرمل', 'Cité Er-Raml', 36.1420, 3.6980),
+('حي 200 مسكن', '200 Logements', 36.1540, 3.6880),
+('حي النصر', 'Cité En-Nasr', 36.1465, 3.7020),
+('حي المصالحة الوطنية', 'Cité Réconciliation', 36.1560, 3.6920),
+('حي 100 مسكن التساهمي', '100 Logements LSP', 36.1410, 3.6820),
+('حي السلام', 'Cité Es-Salam', 36.1495, 3.6790),
+('طريق البويرة', 'Route de Bouira', 36.1600, 3.6950),
+('طريق سيدي عيسى', 'Route de Sidi Aïssa', 36.1380, 3.6920),
+('طريق عين بسام', 'Route d Ain Bessem', 36.1520, 3.6750)
+ON CONFLICT (name_arabic) DO NOTHING;
+
+

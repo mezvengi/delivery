@@ -11,6 +11,7 @@ const productRoutes = require('./routes/products');
 const orderRoutes = require('./routes/orders');
 const driverRoutes = require('./routes/drivers');
 const adminRoutes = require('./routes/admin');
+const neighborhoodRoutes = require('./routes/neighborhoods');
 
 const app = express();
 const server = http.createServer(app);
@@ -56,6 +57,8 @@ app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/drivers', driverRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/neighborhoods', neighborhoodRoutes);
+app.use('/neighborhoods', neighborhoodRoutes);
 
 // Error Handler
 app.use((err, req, res, next) => {
