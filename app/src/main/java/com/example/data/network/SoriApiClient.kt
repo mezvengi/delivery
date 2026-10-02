@@ -5,8 +5,11 @@ import com.example.data.config.ApiConstants
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -520,7 +523,13 @@ interface SoriApiService {
 // ==============================================================================
 
 sealed class SoriWebSocketEvent {
-    data class DriverLocationUpdated(val driverId: Long, val lat: Double, val lng: Double) : SoriWebSocketEvent()
+    data class DriverLocationUpdated(
+        val driverId: Long,
+        val lat: Double,
+        val lng: Double,
+        val speed: Double = 25.0,
+        val bearing: Float = 0f
+    ) : SoriWebSocketEvent()
     data class OrderStatusUpdated(val orderId: Long, val status: String) : SoriWebSocketEvent()
     data class ConnectionState(val isConnected: Boolean) : SoriWebSocketEvent()
 }
@@ -529,6 +538,9 @@ class SoriWebSocketManager(private val okHttpClient: OkHttpClient) {
     private var webSocket: WebSocket? = null
     private val _events = MutableSharedFlow<SoriWebSocketEvent>(extraBufferCapacity = 64)
     val events: SharedFlow<SoriWebSocketEvent> = _events.asSharedFlow()
+
+    private val _isConnected = MutableStateFlow(false)
+    val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
     fun connect() {
         if (webSocket != null) return
@@ -539,6 +551,7 @@ class SoriWebSocketManager(private val okHttpClient: OkHttpClient) {
         webSocket = okHttpClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 Log.d("SoriWS", "Connected to ${ApiConstants.WS_URL}")
+                _isConnected.value = true
                 _events.tryEmit(SoriWebSocketEvent.ConnectionState(true))
             }
 
@@ -550,8 +563,10 @@ class SoriWebSocketManager(private val okHttpClient: OkHttpClient) {
                             val driverId = json.optLong("driver_id", json.optLong("id"))
                             val lat = json.optDouble("lat")
                             val lng = json.optDouble("lng", json.optDouble("lon"))
+                            val speed = json.optDouble("speed", 25.0)
+                            val bearing = json.optDouble("bearing", 0.0).toFloat()
                             if (lat != 0.0 && lng != 0.0) {
-                                _events.tryEmit(SoriWebSocketEvent.DriverLocationUpdated(driverId, lat, lng))
+                                _events.tryEmit(SoriWebSocketEvent.DriverLocationUpdated(driverId, lat, lng, speed, bearing))
                             }
                         }
                         "order_status" -> {
@@ -568,21 +583,40 @@ class SoriWebSocketManager(private val okHttpClient: OkHttpClient) {
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                _isConnected.value = false
                 _events.tryEmit(SoriWebSocketEvent.ConnectionState(false))
                 this@SoriWebSocketManager.webSocket = null
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.w("SoriWS", "WebSocket failure: ${t.message}")
+                _isConnected.value = false
                 _events.tryEmit(SoriWebSocketEvent.ConnectionState(false))
                 this@SoriWebSocketManager.webSocket = null
             }
         })
     }
 
+    fun sendDriverLocation(driverId: Long, lat: Double, lng: Double, speed: Double = 25.0, bearing: Float = 0f): Boolean {
+        return try {
+            val payload = JSONObject().apply {
+                put("type", "driver_location")
+                put("driver_id", driverId)
+                put("lat", lat)
+                put("lng", lng)
+                put("speed", speed)
+                put("bearing", bearing.toDouble())
+            }.toString()
+            webSocket?.send(payload) ?: false
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     fun disconnect() {
         webSocket?.close(1000, "App closed")
         webSocket = null
+        _isConnected.value = false
         _events.tryEmit(SoriWebSocketEvent.ConnectionState(false))
     }
 }

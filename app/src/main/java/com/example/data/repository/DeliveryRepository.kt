@@ -45,6 +45,8 @@ class DeliveryRepository(
     private val _simulatedEtaMinutes = MutableStateFlow(8)
     val simulatedEtaMinutes: StateFlow<Int> = _simulatedEtaMinutes.asStateFlow()
 
+    val isWebSocketConnected: StateFlow<Boolean> = SoriApiClient.webSocketManager.isConnected
+
     init {
         scope.launch(Dispatchers.IO) {
             seedInitialDataIfNeeded()
@@ -60,7 +62,7 @@ class DeliveryRepository(
                 SoriApiClient.webSocketManager.events.collect { event ->
                     when (event) {
                         is SoriWebSocketEvent.DriverLocationUpdated -> {
-                            driverDao.updateDriverLocation(event.driverId, event.lat, event.lng, 30.0)
+                            driverDao.updateDriverLocation(event.driverId, event.lat, event.lng, event.speed)
                         }
                         is SoriWebSocketEvent.OrderStatusUpdated -> {
                             val mappedStatus = when (event.status.uppercase()) {
@@ -81,6 +83,19 @@ class DeliveryRepository(
         } catch (e: Exception) {
             // Safe fallback
         }
+    }
+
+    fun reconnectWebSocket() {
+        try {
+            SoriApiClient.webSocketManager.disconnect()
+            SoriApiClient.webSocketManager.connect()
+        } catch (e: Exception) {
+            // Safe fallback
+        }
+    }
+
+    fun broadcastDriverLocation(driverId: Long, lat: Double, lon: Double, speed: Double, bearing: Float = 0f) {
+        SoriApiClient.webSocketManager.sendDriverLocation(driverId, lat, lon, speed, bearing)
     }
 
     private suspend fun syncWithRemoteServer() {
@@ -478,21 +493,34 @@ class DeliveryRepository(
 
             // Step 3: ON_THE_WAY (Driver moving along Sour El Ghozlane towards Customer)
             orderDao.updateOrderStatus(orderId, OrderStatus.ON_THE_WAY.name)
-            val steps = 15
+            val steps = 24
+            var prevLat = shopLat
+            var prevLon = shopLon
             for (i in 1..steps) {
                 val fraction = i.toDouble() / steps
                 val currentLat = shopLat + (customerLat - shopLat) * fraction
                 val currentLon = shopLon + (customerLon - shopLon) * fraction
-                val speed = 25.0 + Random.nextDouble(-3.0, 5.0)
+                val speed = 26.0 + Random.nextDouble(-2.0, 4.0)
+
+                val dLat = currentLat - prevLat
+                val dLon = currentLon - prevLon
+                val bearing = if (kotlin.math.abs(dLat) > 0.00001 || kotlin.math.abs(dLon) > 0.00001) {
+                    Math.toDegrees(kotlin.math.atan2(dLon, dLat)).toFloat()
+                } else 0f
+                prevLat = currentLat
+                prevLon = currentLon
+
                 driverDao.updateDriverLocation(driverId, currentLat, currentLon, speed)
+                SoriApiClient.webSocketManager.sendDriverLocation(driverId, currentLat, currentLon, speed, bearing)
 
                 val eta = maxOf(1, ((1.0 - fraction) * 8).toInt())
                 _simulatedEtaMinutes.value = eta
-                delay(1200)
+                delay(800)
             }
 
             // Step 4: DELIVERED (Cash on Delivery received!)
             driverDao.updateDriverLocation(driverId, customerLat, customerLon, 0.0)
+            SoriApiClient.webSocketManager.sendDriverLocation(driverId, customerLat, customerLon, 0.0, 0f)
             _simulatedEtaMinutes.value = 0
             orderDao.updateOrderStatus(orderId, OrderStatus.DELIVERED.name)
             loyaltyStorage?.addPoints(50, "نقاط طلب مكتمل 📦")

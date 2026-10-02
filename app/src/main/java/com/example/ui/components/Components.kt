@@ -2,8 +2,10 @@ package com.example.ui.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -40,19 +42,31 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.models.OrderStatus
 import com.example.data.models.UserRole
+import kotlin.math.abs
+import kotlin.math.atan2
 
 @Composable
 fun RoleSwitcherBar(
@@ -262,7 +276,8 @@ private fun StepConnector(isActive: Boolean) {
  * - Geofence boundary
  * - Restaurant Marker
  * - Customer Home Marker
- * - Moving Driver Scooter with live trail and speed
+ * - Moving Driver Delivery Motorcycle with live smooth interpolation, bearing, and speed
+ * - Real-time WebSocket connectivity status
  */
 @Composable
 fun SourElGhozlaneMapCanvas(
@@ -273,25 +288,71 @@ fun SourElGhozlaneMapCanvas(
     driverLat: Double,
     driverLon: Double,
     driverSpeed: Double,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isWebSocketConnected: Boolean = true,
+    driverName: String = "أمين التوصيل"
 ) {
+    // Smooth coordinate interpolation (glides smoothly across frames)
+    val animatedLat by animateFloatAsState(
+        targetValue = driverLat.toFloat(),
+        animationSpec = tween(durationMillis = 850, easing = LinearEasing),
+        label = "animatedLat"
+    )
+    val animatedLon by animateFloatAsState(
+        targetValue = driverLon.toFloat(),
+        animationSpec = tween(durationMillis = 850, easing = LinearEasing),
+        label = "animatedLon"
+    )
+
+    // Heading Bearing Calculation and Smooth Turn Rotation
+    var prevLat by remember { mutableStateOf(driverLat) }
+    var prevLon by remember { mutableStateOf(driverLon) }
+    var targetBearing by remember { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(driverLat, driverLon) {
+        val dLat = driverLat - prevLat
+        val dLon = driverLon - prevLon
+        if (abs(dLat) > 0.00002 || abs(dLon) > 0.00002) {
+            val screenDx = dLon
+            val screenDy = -dLat // Inverted Y in screen coordinates
+            targetBearing = Math.toDegrees(atan2(screenDy, screenDx)).toFloat()
+            prevLat = driverLat
+            prevLon = driverLon
+        }
+    }
+
+    val animatedRotation by animateFloatAsState(
+        targetValue = targetBearing,
+        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        label = "animatedBearing"
+    )
+
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseRadius by infiniteTransition.animateFloat(
-        initialValue = 18f,
-        targetValue = 36f,
+        initialValue = 14f,
+        targetValue = 40f,
         animationSpec = infiniteRepeatable(
             animation = tween(1200, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "pulseRadius"
     )
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "pulseAlpha"
+    )
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(210.dp)
+            .height(230.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFF0F172A))
+            .background(Color(0xFF0B132B))
             .border(1.dp, Color(0xFF334155), RoundedCornerShape(16.dp))
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -307,16 +368,19 @@ fun SourElGhozlaneMapCanvas(
             fun mapToPoint(lat: Double, lon: Double): Offset {
                 val x = ((lon - minLon) / (maxLon - minLon)).toFloat() * w
                 val y = (1f - ((lat - minLat) / (maxLat - minLat)).toFloat()) * h
-                return Offset(x.coerceIn(20f, w - 20f), y.coerceIn(20f, h - 20f))
+                return Offset(x.coerceIn(24f, w - 24f), y.coerceIn(24f, h - 24f))
             }
 
             // 1. Draw stylized street grid of Sour El Ghozlane
             val streetColor = Color(0xFF1E293B)
-            val mainRoadColor = Color(0xFF273549)
+            val mainRoadColor = Color(0xFF28384D)
+            val roadGlowColor = Color(0xFF1C2738)
             val strokeWidth = 2.dp.toPx()
 
             // Main Avenues of Sour El Ghozlane
+            drawLine(roadGlowColor, Offset(0f, h * 0.45f), Offset(w, h * 0.45f), strokeWidth = 8.dp.toPx())
             drawLine(mainRoadColor, Offset(0f, h * 0.45f), Offset(w, h * 0.45f), strokeWidth = 4.dp.toPx())
+            drawLine(roadGlowColor, Offset(w * 0.4f, 0f), Offset(w * 0.4f, h), strokeWidth = 8.dp.toPx())
             drawLine(mainRoadColor, Offset(w * 0.4f, 0f), Offset(w * 0.4f, h), strokeWidth = 4.dp.toPx())
             drawLine(mainRoadColor, Offset(0f, h * 0.8f), Offset(w, h * 0.3f), strokeWidth = 3.dp.toPx())
 
@@ -330,7 +394,7 @@ fun SourElGhozlaneMapCanvas(
 
             // 2. Geofence Boundary (8km circle indicator)
             drawCircle(
-                color = Color(0x22EA580C),
+                color = Color(0x25EA580C),
                 radius = minOf(w, h) * 0.48f,
                 center = Offset(w * 0.5f, h * 0.5f),
                 style = Stroke(
@@ -341,92 +405,214 @@ fun SourElGhozlaneMapCanvas(
 
             val shopPos = mapToPoint(shopLat, shopLon)
             val custPos = mapToPoint(customerLat, customerLon)
-            val driverPos = mapToPoint(driverLat, driverLon)
+            val driverPos = mapToPoint(animatedLat.toDouble(), animatedLon.toDouble())
 
-            // 3. Route trail from Shop to Customer through Driver
+            // 3. Glowing Route trail from Shop to Driver (completed leg)
             drawLine(
                 color = Color(0xFFF97316),
                 start = shopPos,
                 end = driverPos,
-                strokeWidth = 3.dp.toPx(),
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                strokeWidth = 3.5.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f), 0f)
             )
+            // Remaining Route trail from Driver to Customer (upcoming leg)
             drawLine(
                 color = Color(0x66F97316),
                 start = driverPos,
                 end = custPos,
                 strokeWidth = 3.dp.toPx(),
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f), 0f)
             )
 
             // 4. Shop Marker 🏪
+            drawCircle(color = Color(0x443B82F6), radius = 16.dp.toPx(), center = shopPos)
             drawCircle(color = Color(0xFF3B82F6), radius = 10.dp.toPx(), center = shopPos)
             drawCircle(color = Color.White, radius = 4.dp.toPx(), center = shopPos)
 
             // 5. Customer Marker 🏠
+            drawCircle(color = Color(0x4422C55E), radius = 16.dp.toPx(), center = custPos)
             drawCircle(color = Color(0xFF22C55E), radius = 10.dp.toPx(), center = custPos)
             drawCircle(color = Color.White, radius = 4.dp.toPx(), center = custPos)
 
-            // 6. Moving Driver Scooter Marker 🛵 with pulse
+            // 6. Radar pulse rings around the moving Delivery Bike
             drawCircle(
-                color = Color(0x44EA580C),
+                color = Color(0xFFEA580C).copy(alpha = pulseAlpha),
                 radius = pulseRadius,
                 center = driverPos
             )
             drawCircle(
-                color = Color(0xFFEA580C),
-                radius = 12.dp.toPx(),
+                color = Color(0xFFF97316).copy(alpha = pulseAlpha * 0.5f),
+                radius = pulseRadius * 1.6f,
                 center = driverPos
             )
-            drawCircle(
-                color = Color.White,
-                radius = 5.dp.toPx(),
-                center = driverPos
-            )
+
+            // 7. Polished Delivery Motorcycle with Heading Rotation
+            rotate(degrees = animatedRotation, pivot = driverPos) {
+                // Forward LED Headlight Beam
+                val beamPath = Path().apply {
+                    moveTo(driverPos.x + 12.dp.toPx(), driverPos.y - 3.dp.toPx())
+                    lineTo(driverPos.x + 44.dp.toPx(), driverPos.y - 16.dp.toPx())
+                    lineTo(driverPos.x + 44.dp.toPx(), driverPos.y + 16.dp.toPx())
+                    close()
+                }
+                drawPath(
+                    path = beamPath,
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(Color(0x99FEF08A), Color(0x00FEF08A)),
+                        startX = driverPos.x + 12.dp.toPx(),
+                        endX = driverPos.x + 44.dp.toPx()
+                    )
+                )
+
+                // Wheels
+                val backWheelCenter = Offset(driverPos.x - 10.dp.toPx(), driverPos.y)
+                val frontWheelCenter = Offset(driverPos.x + 10.dp.toPx(), driverPos.y)
+
+                drawCircle(color = Color(0xFF0F172A), radius = 5.dp.toPx(), center = backWheelCenter)
+                drawCircle(color = Color(0xFF94A3B8), radius = 2.dp.toPx(), center = backWheelCenter)
+
+                drawCircle(color = Color(0xFF0F172A), radius = 5.dp.toPx(), center = frontWheelCenter)
+                drawCircle(color = Color(0xFF94A3B8), radius = 2.dp.toPx(), center = frontWheelCenter)
+
+                // Aerodynamic Scooter Body & Chassis
+                drawRoundRect(
+                    color = Color(0xFFEA580C),
+                    topLeft = Offset(driverPos.x - 8.dp.toPx(), driverPos.y - 4.dp.toPx()),
+                    size = Size(17.dp.toPx(), 8.dp.toPx()),
+                    cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx())
+                )
+
+                // Windshield / Front fairing
+                drawCircle(
+                    color = Color(0xFFFB923C),
+                    radius = 4.5.dp.toPx(),
+                    center = Offset(driverPos.x + 8.dp.toPx(), driverPos.y)
+                )
+                // Headlight bulb
+                drawCircle(
+                    color = Color(0xFFFEF08A),
+                    radius = 2.5.dp.toPx(),
+                    center = Offset(driverPos.x + 12.dp.toPx(), driverPos.y)
+                )
+
+                // High-visibility Courier Thermal Box (Trunk)
+                drawRoundRect(
+                    color = Color(0xFFC2410C),
+                    topLeft = Offset(driverPos.x - 15.dp.toPx(), driverPos.y - 5.5.dp.toPx()),
+                    size = Size(8.dp.toPx(), 11.dp.toPx()),
+                    cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                )
+                // Thermal Box SG Logo Strap
+                drawLine(
+                    color = Color.White,
+                    start = Offset(driverPos.x - 15.dp.toPx(), driverPos.y),
+                    end = Offset(driverPos.x - 7.dp.toPx(), driverPos.y),
+                    strokeWidth = 1.5.dp.toPx()
+                )
+
+                // Driver Helmet
+                drawCircle(
+                    color = Color.White,
+                    radius = 4.5.dp.toPx(),
+                    center = Offset(driverPos.x - 1.dp.toPx(), driverPos.y)
+                )
+                // Helmet Visor
+                drawCircle(
+                    color = Color(0xFF0F172A),
+                    radius = 2.dp.toPx(),
+                    center = Offset(driverPos.x + 1.5.dp.toPx(), driverPos.y)
+                )
+            }
         }
 
-        // Overlay Badges
+        // Top Badges Row
         Row(
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(8.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xCC0F172A))
-                .border(1.dp, Color(0xFF334155), RoundedCornerShape(20.dp))
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .fillMaxWidth()
+                .padding(8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
+            // City Map Badge
+            Row(
                 modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF22C55E))
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = "بث مباشر (WebSocket)",
-                color = Color(0xFFF8FAFC),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold
-            )
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color(0xCC0F172A))
+                    .border(1.dp, Color(0xFF334155), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "خريطة سور الغزلان الحية 🇩🇿",
+                    color = Color(0xFFCBD5E1),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            // WebSocket Live Status Badge
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color(0xCC0F172A))
+                    .border(1.dp, if (isWebSocketConnected) Color(0xFF15803D) else Color(0xFF991B1B), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(if (isWebSocketConnected) Color(0xFF22C55E) else Color(0xFFEF4444))
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = if (isWebSocketConnected) "بث مباشر (WebSocket) ⚡" else "جارِ الاتصال بالـ WebSocket...",
+                    color = Color(0xFFF8FAFC),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
 
-        // Driver Telemetry Badge
+        // Bottom Driver Telemetry & Speed Badge
         Row(
             modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(8.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xDD0F172A))
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .padding(8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "🛵 دراجة السائق: ${String.format("%.1f", driverSpeed)} كم/سا",
-                color = Color(0xFFF97316),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xEE0F172A))
+                    .border(1.dp, Color(0xFF334155), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "🛵 دراجة $driverName: ${String.format("%.1f", driverSpeed)} كم/سا",
+                    color = Color(0xFFF97316),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xCC0F172A))
+                    .padding(horizontal = 6.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "📍 ${String.format("%.4f", animatedLat)}°N, ${String.format("%.4f", animatedLon)}°E",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 9.sp
+                )
+            }
         }
     }
 }

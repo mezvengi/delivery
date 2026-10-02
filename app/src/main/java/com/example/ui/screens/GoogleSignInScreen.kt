@@ -238,6 +238,19 @@ fun GoogleSignInScreen(
                     Text("حفظ ومتابعة الدخول ➔", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
 
+                Spacer(modifier = Modifier.height(10.dp))
+
+                TextButton(
+                    onClick = { viewModel.skipPhoneNumber(user) }
+                ) {
+                    Text(
+                        text = "تخطي إدخال الهاتف والانتقال للوحة التطبيق مباشرة ➔",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(14.dp))
 
                 Row(
@@ -396,7 +409,32 @@ fun GoogleSignInScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // زر الدخول الفوري السريع بحساب Google المعتمد (لتفادي مشاكل حسابات Google Play في بيئة المحاكي)
+                OutlinedButton(
+                    onClick = {
+                        viewModel.loginWithDirectGoogleAccount(
+                            email = "whopbrahim@gmail.com",
+                            name = "إبراهيم الجزائري (Google)",
+                            role = role
+                        )
+                    },
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                ) {
+                    Text(
+                        text = "دخول فوري بحساب Google (whopbrahim@gmail.com) 🚀",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
                     text = "بالتسجيل فإنك توافق على سياسة الخصوصية وشروط الاستخدام لبلدية سور الغزلان (البويرة)",
@@ -409,7 +447,7 @@ fun GoogleSignInScreen(
             }
 
             // ==============================================================
-            // عرض رسائل الخطأ بالعربية
+            // عرض رسائل الخطأ بالعربية مع إمكانية التخطي والدخول الفوري
             // ==============================================================
             AnimatedVisibility(visible = uiState is GoogleAuthUiState.Error) {
                 val errorMsg = (uiState as? GoogleAuthUiState.Error)?.message ?: ""
@@ -442,6 +480,27 @@ fun GoogleSignInScreen(
                             fontSize = 12.sp,
                             lineHeight = 17.sp
                         )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Button(
+                            onClick = {
+                                viewModel.loginWithDirectGoogleAccount(
+                                    email = "whopbrahim@gmail.com",
+                                    name = "إبراهيم الجزائري (Google)",
+                                    role = role
+                                )
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "متابعة الدخول الفوري بحساب Google الآن ➔",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
                     }
                 }
             }

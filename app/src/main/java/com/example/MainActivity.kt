@@ -277,6 +277,7 @@ fun SGdeliveryApp(
     val orders by repository.getAllOrders().collectAsState(initial = emptyList())
     val latestOrder by repository.getLatestOrder().collectAsState(initial = null)
     val simulatedEta by repository.simulatedEtaMinutes.collectAsState()
+    val isWebSocketConnected by repository.isWebSocketConnected.collectAsState()
     val orderHistory by repository.getCustomerOrderHistory().collectAsState(initial = emptyList())
     val loyaltyPoints by (repository.loyaltyStorage?.pointsBalance ?: kotlinx.coroutines.flow.MutableStateFlow(0)).collectAsState()
 
@@ -508,6 +509,18 @@ fun SGdeliveryApp(
                                     order = trackingOrder,
                                     driver = drivers.find { it.id == trackingOrder.driverId },
                                     etaMinutes = simulatedEta,
+                                    isWebSocketConnected = isWebSocketConnected,
+                                    onSimulateMovement = {
+                                        val driverId = trackingOrder.driverId ?: drivers.firstOrNull()?.id ?: 1L
+                                        repository.startDriverTrackingSimulation(
+                                            orderId = trackingOrder.id,
+                                            driverId = driverId,
+                                            shopLat = trackingOrder.shopLat,
+                                            shopLon = trackingOrder.shopLon,
+                                            customerLat = trackingOrder.customerLat,
+                                            customerLon = trackingOrder.customerLon
+                                        )
+                                    },
                                     onBack = {
                                         customerScreenState = CustomerScreenState.SHOP_LIST
                                     }

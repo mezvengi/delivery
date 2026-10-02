@@ -49,6 +49,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -1249,7 +1250,9 @@ fun CustomerLiveTrackingScreen(
     driver: DriverEntity?,
     etaMinutes: Int,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isWebSocketConnected: Boolean = true,
+    onSimulateMovement: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val currentStatus = try {
@@ -1288,7 +1291,7 @@ fun CustomerLiveTrackingScreen(
             OrderStatusStepper(currentStatus = currentStatus)
         }
 
-        // Live OpenStreetMap Canvas
+        // Live OpenStreetMap Canvas with Smooth Motorcycle Animation & WebSocket Updates
         item {
             SourElGhozlaneMapCanvas(
                 shopLat = order.shopLat,
@@ -1297,7 +1300,9 @@ fun CustomerLiveTrackingScreen(
                 customerLon = order.customerLon,
                 driverLat = driver?.lat ?: order.shopLat,
                 driverLon = driver?.lon ?: order.shopLon,
-                driverSpeed = driver?.speed ?: 26.0
+                driverSpeed = driver?.speed ?: 26.0,
+                isWebSocketConnected = isWebSocketConnected,
+                driverName = driver?.name ?: order.driverName ?: "أمين التوصيل"
             )
         }
 
@@ -1394,6 +1399,32 @@ fun CustomerLiveTrackingScreen(
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
+                }
+            }
+        }
+
+        // Action to trigger/replay live movement simulation with WebSocket broadcast
+        if (onSimulateMovement != null) {
+            item {
+                OutlinedButton(
+                    onClick = onSimulateMovement,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.TwoWheeler,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "محاكاة انطلاق دراجة التوصيل عبر WebSocket ⚡",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }

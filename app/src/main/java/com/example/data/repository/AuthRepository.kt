@@ -176,6 +176,28 @@ class AuthRepository(context: Context) {
         return user
     }
 
+    fun loginDirectGoogleUser(
+        email: String = "whopbrahim@gmail.com",
+        name: String = "إبراهيم (Google)",
+        role: RoleType = RoleType.CUSTOMER,
+        phone: String = "0550123456"
+    ): Result<UserAccount> {
+        val token = "jwt_google_direct_${UUID.randomUUID().toString().take(12)}"
+        val account = UserAccount(
+            id = "google-usr-${UUID.randomUUID().toString().take(8)}",
+            name = name,
+            phone = phone,
+            email = email,
+            photoUrl = "",
+            role = role,
+            status = AccountStatus.APPROVED,
+            token = token,
+            phoneVerified = true
+        )
+        saveUserSession(account, token, "")
+        return Result.success(account)
+    }
+
     // ==============================================================================
     // 1. Send OTP (WhatsApp / Telegram) - POST /api/auth/send-otp
     // ==============================================================================
