@@ -64,6 +64,7 @@ class GoogleAuthViewModel(
                 }
 
                 val googleIdOption = GetSignInWithGoogleOption.Builder(webClientId)
+                    .setFilterByAuthorizedAccounts(false)
                     .build()
 
                 val request = GetCredentialRequest.Builder()
@@ -215,3 +216,4 @@ class GoogleAuthViewModel(
         _uiState.value = GoogleAuthUiState.Idle
     }
 }
+

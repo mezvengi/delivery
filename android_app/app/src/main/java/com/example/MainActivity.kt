@@ -252,7 +252,7 @@ fun SGdeliveryApp(
                 authRepository.approveAccount(user.id)
             },
             onLogout = {
-                authRepository.logout()
+                authRepository.logout(this@MainActivity)
                 authScreenState = AuthScreenState.ROLE_SELECTION
             }
         )
@@ -404,7 +404,7 @@ fun SGdeliveryApp(
 
                             // Logout Button
                             IconButton(onClick = {
-                                authRepository.logout()
+                                authRepository.logout(this@MainActivity)
                                 authScreenState = AuthScreenState.ROLE_SELECTION
                             }) {
                                 Icon(
@@ -620,3 +620,4 @@ fun SGdeliveryApp(
         }
     }
 }
+

@@ -102,6 +102,9 @@ data class GoogleAuthRequest(
     val role: String? = "customer"
 )
 
+data class RevokeTokenRequest(val refreshToken: String)
+data class BasicResponse(val success: Boolean, val message: String?)
+
 data class GoogleAuthResponse(
     val success: Boolean = true,
     val token: String? = null,
@@ -425,6 +428,9 @@ interface SoriApiService {
     @POST("/api/auth/google")
     suspend fun authenticateWithGoogle(@Body request: GoogleAuthRequest): GoogleAuthResponse
 
+    @POST("/api/auth/logout")
+    suspend fun revokeToken(@Body request: RevokeTokenRequest): BasicResponse
+
     @PATCH("/api/users/me/phone")
     suspend fun updatePhone(@Body request: UpdatePhoneRequest): UpdatePhoneResponse
 
@@ -673,3 +679,6 @@ object SoriApiClient {
         SoriWebSocketManager(okHttpClient)
     }
 }
+
+
+

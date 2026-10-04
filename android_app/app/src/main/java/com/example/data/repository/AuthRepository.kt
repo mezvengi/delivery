@@ -830,7 +830,8 @@ class AuthRepository(context: Context) {
         }
     }
 
-    fun logout() {
+    fun logout(context: android.content.Context) {
+        val refreshToken = prefs.getString("secure_refresh_token", null)
         _currentUser.value = null
         SoriApiClient.accessToken = null
         prefs.edit().remove("current_session_user_id").apply()
@@ -838,7 +839,19 @@ class AuthRepository(context: Context) {
         prefs.edit().remove("secure_refresh_token").apply()
         try {
             com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
-        } catch (e: Exception) {
+        } catch (e: Exception) {}
+
+        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                androidx.credentials.CredentialManager.create(context).clearCredentialState(androidx.credentials.ClearCredentialStateRequest())
+            } catch(e: Exception) {}
+            if (!refreshToken.isNullOrEmpty()) {
+                try {
+                    SoriApiClient.apiService.revokeToken(com.example.data.network.RevokeTokenRequest(refreshToken))
+                } catch(e: Exception) {}
+            }
+        }
+    } catch (e: Exception) {
             // Ignore if Firebase isn't initialized yet
         }
     }
@@ -889,6 +902,7 @@ class AuthRepository(context: Context) {
         }
     }
 }
+
 
 
 
