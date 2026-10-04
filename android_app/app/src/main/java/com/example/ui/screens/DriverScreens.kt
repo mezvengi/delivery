@@ -71,6 +71,25 @@ fun DriverDashboardScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    
+    val locationPermissionState = com.google.accompanist.permissions.rememberMultiplePermissionsState(
+        permissions = listOf(
+            android.Manifest.permission.ACCESS_FINE_LOCATION,
+            android.Manifest.permission.ACCESS_COARSE_LOCATION
+        )
+    )
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (!locationPermissionState.allPermissionsGranted) {
+            locationPermissionState.launchMultiplePermissionRequest()
+        }
+    }
+
+    androidx.compose.runtime.LaunchedEffect(locationPermissionState.allPermissionsGranted, driver.id) {
+        if (locationPermissionState.allPermissionsGranted) {
+            com.example.services.DriverLocationService.start(context, driver.id)
+        }
+    }
 
     var completedOrdersCount by remember { mutableIntStateOf(14) }
     var licensePlate by remember { mutableStateOf("00123-116-10") }
@@ -469,3 +488,4 @@ fun DriverDashboardScreen(
         }
     }
 }
+

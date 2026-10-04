@@ -253,6 +253,7 @@ fun SGdeliveryApp(
             },
             onLogout = {
                 authRepository.logout(this@MainActivity)
+                                try { com.example.services.DriverLocationService.stop(this@MainActivity) } catch (e: Exception) {}
                 authScreenState = AuthScreenState.ROLE_SELECTION
             }
         )
@@ -407,6 +408,7 @@ fun SGdeliveryApp(
                             // Logout Button
                             IconButton(onClick = {
                                 authRepository.logout(this@MainActivity)
+                                try { com.example.services.DriverLocationService.stop(this@MainActivity) } catch (e: Exception) {}
                                 authScreenState = AuthScreenState.ROLE_SELECTION
                             }) {
                                 Icon(
@@ -513,22 +515,15 @@ fun SGdeliveryApp(
 
                         CustomerScreenState.LIVE_TRACKING -> {
                             if (trackingOrder != null) {
+                                androidx.compose.runtime.LaunchedEffect(trackingOrder.id) {
+                                    com.example.data.network.SoriApiClient.webSocketManager.subscribeToOrder(trackingOrder.id)
+                                }
                                 CustomerLiveTrackingScreen(
                                     order = trackingOrder,
                                     driver = drivers.find { it.id == trackingOrder.driverId },
                                     etaMinutes = simulatedEta,
                                     isWebSocketConnected = isWebSocketConnected,
-                                    onSimulateMovement = {
-                                        val driverId = trackingOrder.driverId ?: drivers.firstOrNull()?.id ?: 1L
-                                        repository.startDriverTrackingSimulation(
-                                            orderId = trackingOrder.id,
-                                            driverId = driverId,
-                                            shopLat = trackingOrder.shopLat,
-                                            shopLon = trackingOrder.shopLon,
-                                            customerLat = trackingOrder.customerLat,
-                                            customerLon = trackingOrder.customerLon
-                                        )
-                                    },
+                                    onSimulateMovement = null,
                                     onBack = {
                                         customerScreenState = CustomerScreenState.SHOP_LIST
                                     }
@@ -631,5 +626,7 @@ fun SGdeliveryApp(
         }
     }
 }
+
+
 
 

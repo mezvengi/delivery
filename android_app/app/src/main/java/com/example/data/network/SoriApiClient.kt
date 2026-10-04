@@ -551,6 +551,8 @@ sealed class SoriWebSocketEvent {
 
 class SoriWebSocketManager(private val okHttpClient: OkHttpClient) {
     private var webSocket: WebSocket? = null
+    private var reconnectAttempt = 0
+    private var isIntentionalClose = false
     private val _events = MutableSharedFlow<SoriWebSocketEvent>(extraBufferCapacity = 64)
     val events: SharedFlow<SoriWebSocketEvent> = _events.asSharedFlow()
 
@@ -558,6 +560,7 @@ class SoriWebSocketManager(private val okHttpClient: OkHttpClient) {
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
     fun connect() {
+        isIntentionalClose = false
         if (webSocket != null) return
         val request = Request.Builder()
             .url(ApiConstants.WS_URL)
@@ -567,7 +570,17 @@ class SoriWebSocketManager(private val okHttpClient: OkHttpClient) {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 Log.d("SoriWS", "Connected to ${ApiConstants.WS_URL}")
                 _isConnected.value = true
+                reconnectAttempt = 0
                 _events.tryEmit(SoriWebSocketEvent.ConnectionState(true))
+                accessToken?.let { token ->
+                    try {
+                        val authPayload = JSONObject().apply {
+                            put("action", "AUTH")
+                            put("token", token)
+                        }
+                        webSocket.send(authPayload.toString())
+                    } catch (e: Exception) {}
+                }
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -601,6 +614,7 @@ class SoriWebSocketManager(private val okHttpClient: OkHttpClient) {
                 _isConnected.value = false
                 _events.tryEmit(SoriWebSocketEvent.ConnectionState(false))
                 this@SoriWebSocketManager.webSocket = null
+                scheduleReconnect()
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
@@ -608,15 +622,27 @@ class SoriWebSocketManager(private val okHttpClient: OkHttpClient) {
                 _isConnected.value = false
                 _events.tryEmit(SoriWebSocketEvent.ConnectionState(false))
                 this@SoriWebSocketManager.webSocket = null
+                scheduleReconnect()
             }
         })
+    }
+
+    fun subscribeToOrder(orderId: Long) {
+        try {
+            val payload = JSONObject().apply {
+                put("type", "SUBSCRIBE_ORDER")
+                put("action", "SUBSCRIBE_ORDER")
+                put("orderId", orderId)
+            }
+            webSocket?.send(payload.toString())
+        } catch (e: Exception) {}
     }
 
     fun sendDriverLocation(driverId: Long, lat: Double, lng: Double, speed: Double = 25.0, bearing: Float = 0f): Boolean {
         return try {
             val payload = JSONObject().apply {
-                put("type", "driver_location")
-                put("driver_id", driverId)
+                put("action", "UPDATE_DRIVER_LOCATION")
+                put("driverId", driverId)
                 put("lat", lat)
                 put("lng", lng)
                 put("speed", speed)
@@ -629,6 +655,7 @@ class SoriWebSocketManager(private val okHttpClient: OkHttpClient) {
     }
 
     fun disconnect() {
+        isIntentionalClose = true
         webSocket?.close(1000, "App closed")
         webSocket = null
         _isConnected.value = false
@@ -682,6 +709,11 @@ object SoriApiClient {
         SoriWebSocketManager(okHttpClient)
     }
 }
+
+
+
+
+
 
 
 
