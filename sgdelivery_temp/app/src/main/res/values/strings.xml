@@ -1,5 +1,0 @@
-<resources>
-    <string name="app_name">SGdelivery</string>
-    <!-- Web Client ID from Firebase Authentication -> Sign-in method -> Google -> Web SDK configuration -->
-    <string name="default_web_client_id">697365247419-f9c3i41b18361sckej92429t2s5c1v0q.apps.googleusercontent.com</string>
-</resources>

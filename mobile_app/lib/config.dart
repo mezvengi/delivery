@@ -1,5 +1,5 @@
 class AppConfig {
-  static const String domain = 'sour.serveirc.com';
+  static const String domain = 'sgdelivery.dpdns.org';
   static const String baseUrl = 'https://$domain/api';
   static const String wsUrl = 'wss://$domain/ws';
 

@@ -86,8 +86,8 @@ SOUR/
 4. **Firebase Phone**: Android يتحقق عبر Firebase SMS → `POST /auth/verify-phone` → JWT
 
 ## الاتصال بالخادم
-- **REST**: `https://sour.serveirc.com/api/*` — كل الطلبات عبر Caddy reverse proxy
-- **WebSocket**: `wss://sour.serveirc.com/ws` — تتبع السائقين + تحديث الطلبات لحظياً
+- **REST**: `https://sgdelivery.dpdns.org/api/*` — كل الطلبات عبر Caddy reverse proxy
+- **WebSocket**: `wss://sgdelivery.dpdns.org/ws` — تتبع السائقين + تحديث الطلبات لحظياً
   - Actions: `AUTH`, `SUBSCRIBE_ORDER`, `SUBSCRIBE_DRIVERS`, `UPDATE_DRIVER_LOCATION`, `PING`
 
 ## أوامر التشغيل
