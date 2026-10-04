@@ -113,3 +113,4 @@ node test_cycle.js            # اختبار الدورة الكاملة
 12. [2026-10-04] إصلاح #16: إزالة قيد NOT NULL عن رقم الهاتف لتسهيل Google Sign-In (db.js)
 13. [2026-10-04] إصلاح #17: إضافة شاشة تسجيل دخول حقيقية LoginScreen وحذف الدخول التلقائي التجريبي (Flutter)
 14. [2026-10-04] إصلاح #18: فحص حساب المدير بناءً على role بدلاً من رقم الهاتف (admin.js)
+15. [2026-10-04] مزامنة تطبيق Android (Kotlin/Compose) مع الباك إند الجديد عبر تعديل AuthRepository و SoriApiClient ليقرأ بيانات الملف الشخصي (address, vehicle_type, etc.) بشكل مسطّح ويتوافق مع TokensDto.
