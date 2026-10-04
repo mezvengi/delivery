@@ -272,6 +272,8 @@ fun SGdeliveryApp(
     var activeTrackingOrderId by remember { mutableStateOf<Long?>(null) }
 
     val shops by repository.getAllShops().collectAsState(initial = emptyList())
+    val isSyncing by repository.isSyncing.collectAsState(initial = true)
+    val syncError by repository.syncError.collectAsState(initial = null)
     val products by repository.getAllProducts().collectAsState(initial = emptyList())
     val drivers by repository.getAllDrivers().collectAsState(initial = emptyList())
     val orders by repository.getAllOrders().collectAsState(initial = emptyList())
@@ -431,6 +433,9 @@ fun SGdeliveryApp(
                             CustomerShopListScreen(
                                 shops = shops,
                                 products = products,
+                                isSyncing = isSyncing,
+                                syncError = syncError,
+                                onRetrySync = { repository.retrySync() },
                                 onShopSelected = { shop ->
                                     selectedShop = shop
                                     customerScreenState = CustomerScreenState.SHOP_DETAIL
@@ -485,8 +490,11 @@ fun SGdeliveryApp(
                                 )
                             } else {
                                 CustomerShopListScreen(
-                                    shops = shops,
-                                    products = products,
+                                shops = shops,
+                                products = products,
+                                isSyncing = isSyncing,
+                                syncError = syncError,
+                                onRetrySync = { repository.retrySync() },
                                     onShopSelected = { shop ->
                                         selectedShop = shop
                                         customerScreenState = CustomerScreenState.SHOP_DETAIL
@@ -527,8 +535,11 @@ fun SGdeliveryApp(
                                 )
                             } else {
                                 CustomerShopListScreen(
-                                    shops = shops,
-                                    products = products,
+                                shops = shops,
+                                products = products,
+                                isSyncing = isSyncing,
+                                syncError = syncError,
+                                onRetrySync = { repository.retrySync() },
                                     onShopSelected = { shop ->
                                         selectedShop = shop
                                         customerScreenState = CustomerScreenState.SHOP_DETAIL
@@ -620,4 +631,5 @@ fun SGdeliveryApp(
         }
     }
 }
+
 

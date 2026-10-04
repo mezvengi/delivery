@@ -162,3 +162,4 @@ class CustomerOrderHistoryStorage(context: Context) {
         prefs.edit().putString("past_orders_array", jsonArray.toString()).apply()
     }
 }
+

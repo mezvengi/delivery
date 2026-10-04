@@ -156,3 +156,4 @@ class CustomerLoyaltyStorage(context: Context) {
         return true
     }
 }
+

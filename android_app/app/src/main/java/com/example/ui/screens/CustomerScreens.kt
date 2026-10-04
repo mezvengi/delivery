@@ -513,7 +513,22 @@ fun CustomerShopListScreen(
         }
 
         // Empty Search Results State
-        if (matchingShops.isEmpty() && matchingProducts.isEmpty()) {
+        if (isSyncing) {
+            item {
+                androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    androidx.compose.material3.CircularProgressIndicator()
+                }
+            }
+        } else if (syncError != null) {
+            item {
+                androidx.compose.foundation.layout.Column(modifier = Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                    androidx.compose.material3.Text(syncError, color = MaterialTheme.colorScheme.error)
+                    androidx.compose.material3.Button(onClick = onRetrySync) {
+                        androidx.compose.material3.Text("????? ????????")
+                    }
+                }
+            }
+        } else if (matchingShops.isEmpty() && matchingProducts.isEmpty()) {
             item {
                 Card(
                     shape = RoundedCornerShape(14.dp),
@@ -522,30 +537,11 @@ fun CustomerShopListScreen(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                    androidx.compose.foundation.layout.Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
                     ) {
-                        Text(
-                            text = "🔍",
-                            fontSize = 32.sp
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "لا توجد نتائج مطابقة لـ \"$trimmedQuery\"",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "جرب البحث باسم مطعم مثل \"الأوراس\" أو \"البرج\" أو وجبة مثل \"شواء\"، \"بيتزا\"، \"شاورما\".",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.outline
-                        )
+                        androidx.compose.material3.Text("?? ???? ????? ?????? ??", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -2106,4 +2102,5 @@ fun CustomerProfileScreen(
         }
     }
 }
+
 

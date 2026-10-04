@@ -43,3 +43,8 @@ object SourElGhozlaneConstants {
         Neighborhood("حي النصر", "Hai En-Nasr", 36.1510, 3.7010)
     )
 }
+
+
+data class ShopsResponse(val shops: List<com.example.data.local.ShopEntity>)
+data class ProductsResponse(val products: List<com.example.data.local.ProductEntity>)
+data class OrdersResponse(val orders: List<com.example.data.local.OrderEntity>)

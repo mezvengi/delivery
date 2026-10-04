@@ -363,6 +363,8 @@ data class DriverStatsResponse(
     val max_active_orders: Int = 2
 )
 
+data class OrdersResponse(val orders: List<OrderDetailDto>? = null)
+
 data class CreateOrderResponse(
     val success: Boolean? = true,
     val order: OrderDetailDto? = null,
@@ -415,6 +417,7 @@ data class UpdateUserStatusRequest(
 // ==============================================================================
 
 interface SoriApiService {
+
     // 1. Auth & Verification
     @POST("/api/auth/send-otp")
     suspend fun sendOtp(@Body request: SendOtpRequest): SendOtpResponse
@@ -679,6 +682,9 @@ object SoriApiClient {
         SoriWebSocketManager(okHttpClient)
     }
 }
+
+
+
 
 
 
