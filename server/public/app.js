@@ -1735,20 +1735,7 @@ function triggerNewOrderArrival(order, target = 'both') {
   showToast(`🛎️ طلب جديد وصل (${orderNum})! تم إطلاق جرس التنبيه الصوتي.`);
 }
 
-function simulateNewIncomingOrder(role) {
-  const sampleShops = ['مطعم الأوراس للشواء', 'بيتزا نابولي سور الغزلان', 'برغر سيتي', 'حلويات الورود'];
-  const sampleItems = [
-    '2x شواء نصف دجاجة على الفحم + 1x كوكا كولا (1,450 دج)',
-    '1x بيتزا سوبريم عائلية + بطاطا مقلية (1,200 دج)',
-    '3x سندويتش كبدة على الطريقة العاصمية + عصير رامي (1,350 دج)',
-    '1x وجبة شواء لحم خروف بلدي + سلاطة مشوية (1,900 دج)'
-  ];
-  const sampleNeighborhoods = ['حي الوئام', 'حي 114 مسكن', 'وسط المدينة', 'حي ذراع البرج', 'حي عين مريم'];
-
-  const randShop = sampleShops[Math.floor(Math.random() * sampleShops.length)];
-  const randItem = sampleItems[Math.floor(Math.random() * sampleItems.length)];
-  const randNeigh = sampleNeighborhoods[Math.floor(Math.random() * sampleNeighborhoods.length)];
-  const randNum = `SOUR-${Math.floor(2000 + Math.random() * 7000)}`;
+function simulateNewIncomingOrder() { console.warn("Simulation is disabled."); }`;
 
   const mockOrder = {
     id: Date.now(),
@@ -2509,42 +2496,7 @@ const SOUR_DRIVER_WAYPOINTS = [
   { lat: 36.1448, lon: 3.6860, speed: 34, heading: 190, name: 'حي ذراع البرج' }
 ];
 
-function simulateDriverMovement() {
-  simulatedWaypointIndex = (simulatedWaypointIndex + 1) % SOUR_DRIVER_WAYPOINTS.length;
-  const wp = SOUR_DRIVER_WAYPOINTS[simulatedWaypointIndex];
-  const jitterLat = wp.lat + (Math.random() - 0.5) * 0.0008;
-  const jitterLon = wp.lon + (Math.random() - 0.5) * 0.0008;
-  const speed = wp.speed + Math.floor(Math.random() * 8);
-
-  // 1. Update live tracking marker directly if map is loaded
-  updateLiveDriverMarker({
-    lat: jitterLat,
-    lon: jitterLon,
-    speed: speed,
-    heading: wp.heading,
-    driverName: 'أمين (SYM 125)'
-  });
-
-  // 2. Broadcast through WebSocket to server hub
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({
-      action: 'UPDATE_DRIVER_LOCATION',
-      driverId: 1,
-      lat: jitterLat,
-      lon: jitterLon,
-      speed: speed,
-      heading: wp.heading,
-      orderId: currentTrackingOrderNum || null,
-      isOnline: true
-    }));
-  }
-
-  // 3. Update driver view GPS UI
-  const coordsLabel = document.getElementById('driverCoordsLabel');
-  if (coordsLabel) {
-    coordsLabel.innerText = `${jitterLat.toFixed(4)}° N, ${jitterLon.toFixed(4)}° E (${wp.name} - ${speed} كم/سا)`;
-  }
-}
+function simulateDriverMovement() { /* Real tracking now expected via WS */ }
 
 function initWebSocket() {
   try {
@@ -3464,3 +3416,4 @@ function logoutUser() {
   if (roleSelect) roleSelect.value = 'customer';
   showAuthLandingView();
 }
+

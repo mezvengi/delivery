@@ -167,36 +167,9 @@ class AuthRepository(context: Context) {
         }
     }
 
-    fun loginWithDemoRole(role: RoleType): UserAccount {
-        val user = usersList.firstOrNull { it.role == role } ?: usersList.first()
-        _currentUser.value = user
-        SoriApiClient.accessToken = user.token
-        prefs.edit().putString("current_session_user_id", user.id).apply()
-        prefs.edit().putString("secure_access_token", user.token).apply()
-        return user
-    }
+    
 
-    fun loginDirectGoogleUser(
-        email: String = "whopbrahim@gmail.com",
-        name: String = "إبراهيم (Google)",
-        role: RoleType = RoleType.CUSTOMER,
-        phone: String = "0550123456"
-    ): Result<UserAccount> {
-        val token = "jwt_google_direct_${UUID.randomUUID().toString().take(12)}"
-        val account = UserAccount(
-            id = "google-usr-${UUID.randomUUID().toString().take(8)}",
-            name = name,
-            phone = phone,
-            email = email,
-            photoUrl = "",
-            role = role,
-            status = AccountStatus.APPROVED,
-            token = token,
-            phoneVerified = true
-        )
-        saveUserSession(account, token, "")
-        return Result.success(account)
-    }
+    
 
     // ==============================================================================
     // 1. Send OTP (WhatsApp / Telegram) - POST /api/auth/send-otp
@@ -209,27 +182,15 @@ class AuthRepository(context: Context) {
                 return@withContext Result.success(response)
             }
         } catch (e: Exception) {
-            // Fallback for offline mode or network errors
-        }
-
-        // Generate demo OTP with WhatsApp / Telegram link
-        val fallbackCode = "123456"
-        val fallbackResp = SendOtpResponse(
-            success = true,
-            code = fallbackCode,
-            whatsapp_url = "https://wa.me/213550000000?text=رمز%20تأكيد%20SGdelivery:%20$fallbackCode",
-            telegram_url = "https://t.me/sgdelivery_sour_bot?start=$fallbackCode",
-            message = "تم إنشاء رمز التحقق التجريبي ($fallbackCode) لبلدية سور الغزلان"
-        )
-        Result.success(fallbackResp)
+            return@withContext Result.failure(Exception("??? ??????? ???????? ???? ???????? ??????"))
     }
 
     suspend fun requestOtp(phone: String): Result<String> {
         val res = sendOtp(phone)
         return if (res.isSuccess) {
-            Result.success(res.getOrNull()?.code ?: "123456")
+            Result.success(res.getOrNull()?.code ?: "")
         } else {
-            Result.success("123456")
+            Result.failure(res.exceptionOrNull() ?: Exception("Unknown error"))
         }
     }
 
@@ -298,36 +259,7 @@ class AuthRepository(context: Context) {
             } else if (!apiRes.error.isNullOrEmpty()) {
                 return@withContext Result.failure(Exception(apiRes.error))
             }
-        } catch (e: Exception) {
-            // Fallback for offline / demo testing
-        }
-
-        // Offline / fallback acceptance if code is valid demo code
-        if (code.length >= 4) {
-            val status = if (role == RoleType.CUSTOMER || role == RoleType.ADMIN) AccountStatus.APPROVED else AccountStatus.PENDING_APPROVAL
-            val mockToken = "jwt_mock_${UUID.randomUUID()}"
-            val existing = usersList.find { normalizePhone(it.phone) == cleanPhone }
-            val account = existing?.copy(
-                name = fullName.ifEmpty { existing.name },
-                role = role,
-                token = mockToken
-            ) ?: UserAccount(
-                id = "usr-${UUID.randomUUID().toString().take(8)}",
-                name = fullName.ifEmpty { "زبون سور الغزلان" },
-                phone = cleanPhone,
-                role = role,
-                status = status,
-                token = mockToken,
-                address = address ?: "",
-                vehicleType = vehicleType ?: "",
-                plateNumber = licensePlate ?: "",
-                storeName = if (role == RoleType.STORE) fullName else "",
-                storeType = storeCategory ?: ""
-            )
-
-            saveUserSession(account, mockToken, "")
-            return@withContext Result.success(account)
-        }
+        } catch (e: Exception) { return@withContext Result.failure(e) }
 
         Result.failure(Exception("رمز التحقق غير صحيح، يرجى التحقق من الرسالة المستلمة"))
     }
@@ -817,37 +749,10 @@ class AuthRepository(context: Context) {
                 return@withContext Result.success(response)
             }
         } catch (e: Exception) {
-            // Server fallback to generated activation code
-        }
-
-        // Generate dynamic 6-digit server activation code
-        val generatedCode = kotlin.random.Random.nextInt(100000, 999999).toString()
-        lastGeneratedActivationCode = generatedCode
-
-        val cleanDigits = if (cleanPhone.startsWith("0")) "213" + cleanPhone.substring(1) else cleanPhone
-        val messageText = "كود تفعيل حساب SGdelivery لبلدية سور الغزلان هو: $generatedCode"
-        val encodedMessage = java.net.URLEncoder.encode(messageText, "UTF-8")
-        val whatsappUrl = "https://wa.me/$cleanDigits?text=$encodedMessage"
-        val telegramUrl = "https://t.me/sgdelivery_sour_bot?start=act_$generatedCode"
-
-        val simulatedResponse = SendOtpResponse(
-            success = true,
-            code = generatedCode,
-            whatsapp_url = whatsappUrl,
-            telegram_url = telegramUrl,
-            message = "تم توليد كود التفعيل ($generatedCode) من السيرفر بنجاح، وتم تجهيز الإرسال إلى تلغرام وواتساب"
-        )
-        Result.success(simulatedResponse)
+            return@withContext Result.failure(Exception("Server connection failed"))
     }
 
     suspend fun activateWithCode(phone: String, code: String): Result<UserAccount> = withContext(Dispatchers.IO) {
-        val cleanPhone = normalizePhone(phone)
-        val cleanCode = code.trim()
-
-        val current = _currentUser.value
-        val userToActivate = current ?: usersList.find { normalizePhone(it.phone) == cleanPhone }
-
-        // Attempt server-side verification first
         try {
             if (userToActivate != null) {
                 val roleStr = when (userToActivate.role) {
@@ -984,3 +889,6 @@ class AuthRepository(context: Context) {
         }
     }
 }
+
+
+
