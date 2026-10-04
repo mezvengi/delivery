@@ -4,38 +4,19 @@
 ```
 SOUR/
 ├── server/           ← الباك إند النشط (Node 20 + Express) — يُبنى عبر Docker
-├── github_app/       ← نسخة قديمة (backend/ + app/ Android + web/ PWA)
 ├── mobile_app/       ← تطبيق Flutter للزبون والسائق
 ├── docs/             ← توثيق API
 ├── backups/          ← نسخ احتياطية SQL
-├── docker-compose.yml ← يشير لـ server/ (النشط)
+├── docker-compose.yml ← يشير لـ server/
 ├── Caddyfile         ← Reverse proxy → backend:3000
 └── test_cycle.js     ← اختبار شامل للدورة الكاملة
 ```
 
-## النسختان — أيهما النشطة؟
-| | `server/` (النشط) | `github_app/backend/` (قديم) |
-|-|---|---|
-| Docker | `docker-compose.yml` الجذر يبنيه | `github_app/docker-compose.yml` |
-| Auth | access+refresh tokens, RBAC | JWT واحد 30 يوم |
-| Schema | initDB() programmatic | schema.sql ملف |
-| الأدوار | customer/driver/store/admin + جداول profiles | customer/shop/driver/admin |
-
-## شاشات Android (Kotlin – `github_app/app/.../com/example/`)
-| الشاشة | الملف |
-|---|---|
-| Google Sign-In | `ui/screens/GoogleSignInScreen.kt` |
-| Phone Auth OTP | `ui/screens/PhoneAuthScreen.kt` |
-| Auth Selection | `ui/screens/AuthScreens.kt` |
-| Customer Home | `ui/screens/CustomerScreens.kt` |
-| Shop Dashboard | `ui/screens/ShopScreens.kt` |
-| Driver Dashboard | `ui/screens/DriverScreens.kt` |
-| Admin Panel | `ui/screens/AdminScreens.kt` |
-| ViewModel: Google | `ui/viewmodel/GoogleAuthViewModel.kt` |
-| ViewModel: Phone | `ui/viewmodel/PhoneAuthViewModel.kt` |
-| API Client | `data/network/SoriApiClient.kt` |
-| Auth Repo | `data/repository/AuthRepository.kt` |
-| Config | `data/config/ApiConstants.kt` |
+## نسخة الباك إند النشطة (`server/`)
+- **Docker:** `docker-compose.yml` الأساسي
+- **Auth:** `access+refresh tokens, RBAC` (دعم Google Sign-In و Firebase)
+- **Schema:** `initDB()` برمجي داخل `db.js`
+- **الأدوار:** `customer, driver, store, admin` + جداول ملفات شخصية لكل دور
 
 ## شاشات Flutter (`mobile_app/lib/`)
 | الشاشة | الملف |
