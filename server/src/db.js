@@ -18,7 +18,7 @@ async function initDB() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
-        phone VARCHAR(20) UNIQUE NOT NULL,
+        phone VARCHAR(20) UNIQUE,
         full_name VARCHAR(100),
         password_hash VARCHAR(255),
         role VARCHAR(20) NOT NULL DEFAULT 'customer', -- customer, driver, store, admin
@@ -29,6 +29,9 @@ async function initDB() {
       );
       ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active';
       ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT false;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified_at TIMESTAMP;
+      ALTER TABLE users ALTER COLUMN phone DROP NOT NULL;
     `);
 
     // OTP table

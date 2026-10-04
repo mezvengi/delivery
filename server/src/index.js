@@ -11,6 +11,8 @@ const zoneRoutes = require('./routes/zoneRoutes');
 const shopRoutes = require('./routes/shopRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const driverRoutes = require('./routes/driverRoutes');
+const neighborhoodsRoutes = require('./routes/neighborhoodsRoutes');
+const usersRoutes = require('./routes/usersRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -59,6 +61,10 @@ app.use('/api/zones', zoneRoutes);
 app.use('/api/shops', shopRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/drivers', driverRoutes);
+app.use('/api/neighborhoods', neighborhoodsRoutes);
+app.use('/neighborhoods', neighborhoodsRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/users', usersRoutes);
 
 // 404 Handler
 app.use((req, res) => {
@@ -68,7 +74,10 @@ app.use((req, res) => {
 // Global Error Handler
 app.use((err, req, res, next) => {
   console.error('[Unhandled Error]', err);
-  res.status(500).json({ error: 'حدث خطأ داخلي في الخادم' });
+  const status = err.statusCode || err.status || 500;
+  res.status(status).json({
+    error: err.expose ? err.message : 'حدث خطأ داخلي في الخادم'
+  });
 });
 
 // Initialize WebSocket

@@ -25,6 +25,10 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/serviceAccount.json
+    volumes:
+      - ./backend/serviceAccount.json:/app/serviceAccount.json:ro
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,0 +1,11 @@
+serviceAccount.json
+*.serviceAccount.json
+backend/serviceAccount.json
+*.env
+.env
+.env.*
+node_modules
+npm-debug.log
+.git
+.gitignore
+backups

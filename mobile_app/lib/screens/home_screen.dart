@@ -43,15 +43,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _bootstrap() async {
     setState(() => isLoading = true);
-    // Auto-login customer
+    // Auto-login removed (now handled in main.dart via LoginScreen)
     try {
-      final otp = await widget.api.sendOtp('0559998888');
-      await widget.api.verifyOtp(
-        phone: '0559998888',
-        code: otp['mock_code'] ?? '123456',
-        fullName: 'زبون تجريبي',
-        role: 'CUSTOMER',
-      );
       final s = await widget.api.getShops();
       setState(() {
         shops = s;

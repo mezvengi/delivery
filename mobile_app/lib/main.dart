@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'services/api_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/driver_mode_screen.dart';
+import 'screens/login_screen.dart';
 
 void main() {
   runApp(const SourDeliveryApp());
@@ -45,6 +46,7 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
+  bool _isLoggedIn = false;
   final ApiService _api = ApiService();
 
   late final List<Widget> _screens;
@@ -60,6 +62,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_isLoggedIn) {
+      return LoginScreen(
+        api: _api,
+        onLoginSuccess: () => setState(() => _isLoggedIn = true),
+      );
+    }
     return Scaffold(
       body: _screens[_currentIndex],
       bottomNavigationBar: NavigationBar(

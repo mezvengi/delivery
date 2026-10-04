@@ -2,8 +2,18 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { pool } = require('./db');
 
-const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || 'sour-default-jwt-secret-key-change-me';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'sour-default-jwt-refresh-secret-key-change-me';
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.JWT_ACCESS_SECRET && !process.env.JWT_SECRET) {
+    console.error('❌ FATAL: JWT_ACCESS_SECRET (or JWT_SECRET) must be set in production!');
+    process.exit(1);
+  }
+  if (!process.env.JWT_REFRESH_SECRET) {
+    console.error('❌ FATAL: JWT_REFRESH_SECRET must be set in production!');
+    process.exit(1);
+  }
+}
+const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || 'sour-dev-only-access-secret';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'sour-dev-only-refresh-secret';
 const ACCESS_TOKEN_EXPIRES_IN = process.env.ACCESS_TOKEN_EXPIRES_IN || '15m';
 const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
 

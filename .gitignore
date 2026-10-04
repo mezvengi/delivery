@@ -1,7 +1,11 @@
-# Environment files
+# Environment and Secrets
+*.env
 .env
 .env.local
 .env.*.local
+serviceAccount.json
+*.serviceAccount.json
+backend/serviceAccount.json
 
 # Node dependencies
 node_modules/
