@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SGdelivery | تطبيق توصيل الطلبات - سور الغزلان</title>
+  <meta name="theme-color" content="#EA580C">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <!-- Header / Navigation Bar -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="brand">
+        <div class="brand-text">
+          <h1>تطبيق SGdelivery</h1>
+          <span class="badge">بلدية سور الغزلان • توصيل ثابت 200 دج</span>
+        </div>
+      </div>
+      
+      <!-- Header Actions: Theme Toggle, User Profile, Role Selector -->
+      <div class="header-actions">
+        <!-- Theme Toggle Button -->
+        <button id="themeToggleBtn" class="theme-toggle-btn" onclick="toggleTheme()" title="تبديل الوضع">
+          🌙 الوضع الداكن
+        </button>
+
+        <!-- User Profile / Login Button -->
+        <div id="authNavContainer">
+          <button id="loginNavBtn" class="btn btn-sm btn-primary" onclick="showAuthLandingView()">
+            🔑 تسجيل الدخول / حساب جديد
+          </button>
+          <div id="userProfileBadge" class="user-profile-badge hidden">
+            <span id="userNameLabel">👤 حسابي</span>
+            <button class="logout-btn" onclick="logoutUser()" title="تسجيل الخروج">🚪</button>
+          </div>
+        </div>
+
+        <!-- Role Switcher (Hidden when not logged in, Admin hidden from regular users) -->
+        <div class="role-selector" id="roleSelectorContainer" style="display: none;">
+          <label for="roleSelect">الدور:</label>
+          <select id="roleSelect" onchange="switchRole(this.value)">
+            <option value="customer">الزبون (تصفح وطلب)</option>
+            <option value="shop">المتجر (استقبال وتحضير)</option>
+            <option value="driver">السائق (توصيل وبث GPS)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main App Container -->
+  <main class="app-body">
+    <!-- VIEW 0: FIRST-TIME AUTHENTICATION GATEWAY (Shown when unauthenticated) -->
+    <section id="authLandingView" class="view-section active">
+      <div class="auth-landing-card">
+        <div class="auth-header">
+          <div class="auth-logo-badge">🛵</div>
+          <h2>تطبيق SGdelivery</h2>
+          <p>المنصة الموحدة لتوصيل الطلبات - بلدية سور الغزلان</p>
+          <span class="badge" style="background: rgba(234,88,12,0.15); color: var(--primary); font-size: 11px; padding: 4px 10px; border-radius: 6px; margin-top: 6px; display: inline-block;">توصيل ثابت 200 دج • دفع عند الاستلام نقداً</span>
+        </div>
+
+        <!-- Auth Tabs: Login vs Register -->
+        <div class="auth-tabs">
+          <button id="landingTabLoginBtn" class="auth-tab active" onclick="switchLandingAuthTab('login')">🔑 تسجيل الدخول</button>
+          <button id="landingTabRegisterBtn" class="auth-tab" onclick="switchLandingAuthTab('register')">✨ إنشاء حساب جديد</button>
+        </div>
+
+        <div id="landingAuthAlert" class="auth-alert hidden"></div>
+
+        <!-- TAB 1: LOGIN FORM -->
+        <form id="landingLoginForm" class="auth-form" onsubmit="handleLandingLoginSubmit(event)">
+          <div style="margin-bottom: 14px;">
+            <label style="font-size: 13px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 8px;">اختر صفة الدخول:</label>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+              <button type="button" class="btn btn-sm btn-primary landing-login-role-btn" id="loginRoleCustomerBtn" onclick="selectLandingLoginRole('customer')">👤 زبون</button>
+              <button type="button" class="btn btn-sm btn-outline landing-login-role-btn" id="loginRoleShopBtn" onclick="selectLandingLoginRole('shop')">🏬 متجر</button>
+              <button type="button" class="btn btn-sm btn-outline landing-login-role-btn" id="loginRoleDriverBtn" onclick="selectLandingLoginRole('driver')">🛵 سائق</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="landingLoginPhone">رقم الهاتف الجزائري:</label>
+            <input type="tel" id="landingLoginPhone" class="form-control" placeholder="05XXXXXXXX / 06 / 07" value="0550123456" required>
+          </div>
+
+          <div class="form-group">
+            <label for="landingLoginPassword">كلمة المرور:</label>
+            <input type="password" id="landingLoginPassword" class="form-control" placeholder="••••••••" value="123456" required>
+          </div>
+
+          <button type="submit" id="landingLoginSubmitBtn" class="btn btn-primary btn-block" style="padding: 12px; font-size: 15px; font-weight: 800; margin-top: 10px;">
+            دخول إلى حسابي ➔
+          </button>
+
+          <div style="display:flex; align-items:center; margin:14px 0 10px 0; color:var(--text-muted); font-size:12px;">
+            <span style="flex:1; height:1px; background:var(--border);"></span>
+            <span style="padding:0 10px; font-weight:700;">أو عبر حساب Google</span>
+            <span style="flex:1; height:1px; background:var(--border);"></span>
+          </div>
+
+          <button type="button" id="landingGoogleSignInBtn" class="btn btn-block" style="background:#ffffff; color:#1f2937; border:1px solid #d1d5db; display:flex; align-items:center; justify-content:center; gap:10px; font-weight:700; padding:11px; border-radius:10px; box-shadow:0 1px 2px rgba(0,0,0,0.05);" onclick="triggerGoogleSignIn()">
+            <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.35 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
+            <span>المتابعة باستخدام Google 🚀</span>
+          </button>
+        </form>
+
+        <!-- TAB 2: REGISTER FORM WITH ROLE SELECTION CARDS (Admin completely excluded) -->
+        <form id="landingRegisterForm" class="auth-form hidden" onsubmit="handleLandingRegisterSubmit(event)">
+          <div style="margin-bottom: 14px;">
+            <label style="font-size: 13px; font-weight: 700; color: var(--text-main); display: block; margin-bottom: 8px;">اختر نوع الحساب الذي ترغب بإنشائه:</label>
+            <div class="landing-role-cards-grid">
+              <div class="landing-role-card active" id="cardRoleCustomer" onclick="selectLandingRegisterRole('customer')">
+                <div class="role-card-icon">👤</div>
+                <div class="role-card-content">
+                  <strong>حساب زبون</strong>
+                  <p>تصفح المطاعم، طلب المأكولات وتوصيلها إلى باب منزلك</p>
+                </div>
+              </div>
+              <div class="landing-role-card" id="cardRoleStore" onclick="selectLandingRegisterRole('store')">
+                <div class="role-card-icon">🏬</div>
+                <div class="role-card-content">
+                  <strong>صاحب متجر / مطعم</strong>
+                  <p>نشر الوجبات والمأكولات واستقبال طلبات الزبائن مباشرة</p>
+                </div>
+              </div>
+              <div class="landing-role-card" id="cardRoleDriver" onclick="selectLandingRegisterRole('driver')">
+                <div class="role-card-icon">🛵</div>
+                <div class="role-card-content">
+                  <strong>سائق توصيل معتمد</strong>
+                  <p>استقبال وتوصيل الطلبات بدراجتك النارية وتحقيق دخل يومي</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label id="landingRegNameLabel">الاسم الكامل:</label>
+            <input type="text" id="landingRegName" class="form-control" placeholder="الاسم الكامل" required>
+          </div>
+
+          <div class="form-group">
+            <label>رقم الهاتف الجزائري:</label>
+            <input type="tel" id="landingRegPhone" class="form-control" placeholder="05XXXXXXXX / 06 / 07" required>
+          </div>
+
+          <div class="form-group">
+            <label>كلمة المرور:</label>
+            <input type="password" id="landingRegPassword" class="form-control" placeholder="اختر كلمة مرور لحسابك" required>
+          </div>
+
+          <!-- Customer neighborhood selector -->
+          <div class="form-group" id="landingCustNeighborhoodGroup">
+            <label>الحي في سور الغزلان:</label>
+            <select id="landingRegNeighborhood" class="form-control">
+              <option value="وسط المدينة">وسط المدينة</option>
+              <option value="حي الوئام">حي الوئام</option>
+              <option value="حي 114 مسكن">حي 114 مسكن</option>
+              <option value="حي ذراع البرج">حي ذراع البرج</option>
+              <option value="حي عين مريم">حي عين مريم</option>
+              <option value="حي باب الجزائر">حي باب الجزائر</option>
+              <option value="حي باب البوسعادة">حي باب البوسعادة</option>
+              <option value="حي النصر">حي النصر</option>
+              <option value="المنطقة الصناعية">المنطقة الصناعية</option>
+            </select>
+          </div>
+
+          <!-- Driver specific fields -->
+          <div id="landingDriverExtraFields" class="hidden">
+            <div class="form-group">
+              <label>نوع الدراجة النارية:</label>
+              <select id="landingDriverVehicleType" class="form-control">
+                <option value="SYM Fiddle / Orbit">دراجة SYM (Fiddle / Orbit)</option>
+                <option value="دراجة صينية VMS / Ray">دراجة VMS / Ray</option>
+                <option value="سكوتر كبير (Maxi Scooter)">سكوتر كبير</option>
+                <option value="دراجة نارية أخرى">دراجة نارية أخرى</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>لوحة ترقيم الدراجة:</label>
+              <input type="text" id="landingDriverPlate" class="form-control" placeholder="مثال: 00123-110-10">
+            </div>
+          </div>
+
+          <!-- Store specific fields -->
+          <div id="landingStoreExtraFields" class="hidden">
+            <div class="form-group">
+              <label>تصنيف النشاط التجاري:</label>
+              <select id="landingStoreCategory" class="form-control">
+                <option value="مطاعم ومشاوي">مطاعم ومشاوي على الفحم</option>
+                <option value="بيتزا وفاست فود">بيتزا وسندويتشات سريعة</option>
+                <option value="مخابز وحلويات">مخابز وحلويات تقليدية وعصرية</option>
+                <option value="أغذية عامة ومشروبات">أغذية عامة ومشروبات</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" id="landingRegSubmitBtn" class="btn btn-primary btn-block" style="padding: 12px; font-size: 15px; font-weight: 800; margin-top: 10px;">
+            إنشاء الحساب والمتابعة 🚀
+          </button>
+
+          <div style="display:flex; align-items:center; margin:14px 0 10px 0; color:var(--text-muted); font-size:12px;">
+            <span style="flex:1; height:1px; background:var(--border);"></span>
+            <span style="padding:0 10px; font-weight:700;">أو التسجيل السريع</span>
+            <span style="flex:1; height:1px; background:var(--border);"></span>
+          </div>
+
+          <button type="button" id="landingRegGoogleSignInBtn" class="btn btn-block" style="background:#ffffff; color:#1f2937; border:1px solid #d1d5db; display:flex; align-items:center; justify-content:center; gap:10px; font-weight:700; padding:11px; border-radius:10px; box-shadow:0 1px 2px rgba(0,0,0,0.05);" onclick="triggerGoogleSignIn()">
+            <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.35 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
+            <span>التسجيل والمتابعة بحساب Google 🚀</span>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- BANNER: PENDING ADMIN APPROVAL -->
+    <div id="pendingApprovalBanner" class="pending-approval-card hidden">
+      <div class="pending-icon">⏳</div>
+      <div class="pending-info">
+        <h3>حسابك بانتظار موافقة وتفعيل الإدارة</h3>
+        <p id="pendingRoleDesc">
+          مرحباً بك! تم التحقق من رقم هاتفك بنجاح عبر (واتساب / تلغرام). طلب انضمامك قيد المراجعة حالياً من قبل إدارة SGdelivery في سور الغزلان للتأكد من الوثائق وتفعيل نشاطك على الخريطة.
+        </p>
+        <!-- Server Activation Code Section -->
+        <div style="background: rgba(255,255,255,0.06); border: 1px dashed var(--border); border-radius: 10px; padding: 12px; margin: 12px 0;">
+          <div style="font-weight: 700; font-size: 13px; margin-bottom: 6px; color: var(--primary);">
+            🔑 نظام التفعيل بكود السيرفر (تيليجرام / واتساب):
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+            <button type="button" class="btn btn-sm btn-primary" onclick="requestServerActivationCodeWeb()" id="btnReqCodeWeb">
+              طلب كود التفعيل من السيرفر 📲
+            </button>
+            <a id="pendingWhatsAppBtn" href="#" target="_blank" class="btn btn-sm hidden" style="background:#25D366; color:white; text-decoration:none;">
+              فتح واتساب 🟢
+            </a>
+            <a id="pendingTelegramBtn" href="#" target="_blank" class="btn btn-sm hidden" style="background:#0088CC; color:white; text-decoration:none;">
+              فتح تيليجرام 🔵
+            </a>
+          </div>
+          <div id="webCodeNotice" style="font-size: 12px; color: #10B981; font-weight: bold; margin-bottom: 8px; display: none;"></div>
+          <div style="display: flex; gap: 8px; align-items: center; max-width: 400px;">
+            <input type="text" id="webActivationCodeInput" class="form-control" placeholder="أدخل كود التفعيل (6 أرقام)" maxlength="6" style="padding: 6px 10px; font-size: 13px;">
+            <button type="button" class="btn btn-sm btn-primary" onclick="submitActivationCodeWeb()" style="white-space: nowrap;">
+              تفعيل الحساب الآن ✅
+            </button>
+          </div>
+        </div>
+
+        <div class="pending-actions">
+          <button class="btn btn-sm btn-outline" onclick="checkAccountApprovalStatus()">
+            فحص حالة التفعيل (GET /me) 🔄
+          </button>
+          <a id="pendingWhatsAppContact" href="https://wa.me/213555000000?text=مرحباً%20إدارة%20SGdelivery%D8%8C%20أرجو%20تفعيل%20حسابي" target="_blank" class="btn btn-sm" style="background:#25D366; color:white; text-decoration:none; display:inline-flex; align-items:center; gap:5px;">
+            <span>💬</span> تواصل مع الإدارة عبر واتساب
+          </a>
+          <button class="btn btn-sm btn-secondary" onclick="logoutUser()">
+            تسجيل الخروج 🚪
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 1: CUSTOMER VIEW -->
+    <section id="customerView" class="view-section active">
+      <!-- Store List Subview -->
+      <div id="storeListView">
+        <div class="hero-banner">
+          <h2>أشهى المأكولات والمطاعم إلى باب بيتك</h2>
+          <p>اختر مطعمك المفضل في سور الغزلان وسائق التوصيل الأقرب إليك بالدفع عند الاستلام</p>
+        </div>
+
+        <!-- Order History Quick Link -->
+        <div class="order-history-link-card" onclick="showOrderHistoryView()" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 20px;">📋</span>
+            <div>
+              <strong style="font-size: 13px; color: var(--text-main); display: block;">سجل الطلبات السابقة ومواعيد التوصيل</strong>
+              <span style="font-size: 11px; color: var(--text-muted);">عرض المبالغ والوجبات المخزنة محلياً</span>
+            </div>
+          </div>
+          <span id="orderHistoryBadge" style="background: var(--primary); color: white; padding: 4px 10px; border-radius: 10px; font-size: 12px; font-weight: bold;">3 طلبات ➔</span>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-bar-container" style="margin-bottom: 14px;">
+          <input type="text" id="shopSearchInput" class="form-control" placeholder="🔍 ابحث عن مطعم أو وجبة (شواء، بيتزا، كبدة، برغر...)" oninput="handleSearchInput(this.value)">
+        </div>
+
+        <!-- Category Filter Bar (شريط التصنيفات) -->
+        <div class="category-filter-section" style="margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-weight: 700; font-size: 13px; color: var(--text-main);">التصنيفات والأنواع:</span>
+            <span id="resetCategoryBtn" style="font-size: 12px; color: var(--primary); font-weight: 700; cursor: pointer; display: none;" onclick="selectCategory('all')">إلغاء التصفية ✕</span>
+          </div>
+          <div class="categories-scroll-row" id="categoriesScrollRow" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;">
+            <button class="cat-pill active" onclick="selectCategory('all')">🍽️ الكل</button>
+            <button class="cat-pill" onclick="selectCategory('pizza')">🍕 بيتزا</button>
+            <button class="cat-pill" onclick="selectCategory('bbq')">🥩 شواء ومشويات</button>
+            <button class="cat-pill" onclick="selectCategory('fast_food')">🍔 وجبات سريعة</button>
+            <button class="cat-pill" onclick="selectCategory('sandwiches')">🥪 سندويشات</button>
+            <button class="cat-pill" onclick="selectCategory('sweets')">🥐 حلويات ومخبوزات</button>
+          </div>
+        </div>
+
+        <!-- INTERACTIVE SHOPS MAP SECTION (خريطة المتاجر القريبة التفاعلية) -->
+        <div class="customer-map-card" id="customerMapContainer">
+          <div class="customer-map-header">
+            <div class="customer-map-title-row">
+              <span class="customer-map-icon">🗺️</span>
+              <div>
+                <h4 style="margin: 0; font-size: 15px; font-weight: 800; color: var(--text-main);">خريطة المتاجر والمطاعم القريبة من حيك</h4>
+                <p id="customerMapSubtitle" style="margin: 3px 0 0 0; font-size: 11px; color: var(--text-muted);">
+                  اختر حيك في سور الغزلان لتحديد المتاجر الأقرب إليك وسرعة التوصيل
+                </p>
+              </div>
+            </div>
+
+            <!-- Neighborhood & Controls -->
+            <div class="customer-map-controls">
+              <div class="map-neighborhood-pill">
+                <span style="font-size: 13px;">📍 حيك:</span>
+                <select id="customerNeighborhoodSelect" class="map-neigh-select" onchange="onCustomerNeighborhoodChange(this.value)">
+                  <option value="وسط المدينة">وسط المدينة</option>
+                  <option value="حي الوئام" selected>حي الوئام</option>
+                  <option value="حي 114 مسكن">حي 114 مسكن</option>
+                  <option value="حي ذراع البرج">حي ذراع البرج</option>
+                  <option value="حي عين مريم">حي عين مريم</option>
+                  <option value="حي باب الجزائر">حي باب الجزائر</option>
+                  <option value="حي باب البوسعادة">حي باب البوسعادة</option>
+                  <option value="المنطقة الصناعية">المنطقة الصناعية</option>
+                  <option value="حي النصر">حي النصر</option>
+                </select>
+              </div>
+
+              <div style="display: flex; gap: 6px;">
+                <button type="button" class="btn btn-sm btn-outline" onclick="locateUserGeolocation()" style="padding: 5px 10px; font-size: 12px; white-space: nowrap;" title="تحديد موقعي الفعلي">
+                  🎯 موقعي
+                </button>
+                <button type="button" class="btn btn-sm btn-secondary" id="toggleMapExpandBtn" onclick="toggleCustomerMapHeight()" style="padding: 5px 10px; font-size: 12px; white-space: nowrap;">
+                  ⤢ تكبير
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Leaflet Map Container -->
+          <div id="customerShopsMap" style="height: 330px; width: 100%; border-radius: 12px; position: relative;"></div>
+
+          <!-- Map Footer with Legend and Nearest Store Notice -->
+          <div class="customer-map-footer">
+            <div class="map-legend-items">
+              <span class="legend-badge"><span class="legend-pin customer-pin-color"></span> موقع حيك</span>
+              <span class="legend-badge"><span class="legend-pin shop-pin-color"></span> مطاعم ومتاجر</span>
+              <span class="legend-badge"><span class="legend-pin driver-pin-color"></span> دراجات توصيل</span>
+            </div>
+            <div id="nearestShopNotice" class="nearest-shop-banner">
+              <span>⚡ أقرب متجر: <strong id="nearestShopName">جاري الحساب...</strong> (<span id="nearestShopDist">--</span>)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title">
+          <h3 id="shopsSectionTitle">المتاجر والمطاعم المتاحة الآن في سور الغزلان</h3>
+        </div>
+
+        <div id="mealsSearchResults" class="products-grid hidden" style="margin-bottom: 20px;"></div>
+
+        <div id="shopsGrid" class="shops-grid">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- Single Store Detail Subview -->
+      <div id="storeDetailView" class="hidden">
+        <button class="btn btn-secondary back-btn" onclick="showStoreList()">
+          ➔ العودة إلى قائمة المتاجر
+        </button>
+
+        <div id="storeHeaderCard" class="store-header-card">
+          <!-- Populated dynamically -->
+        </div>
+
+        <h3 class="menu-heading">قائمة الوجبات والأسعار (بالدينار الجزائري)</h3>
+        <div id="productsGrid" class="products-grid">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Order History Subview -->
+      <div id="orderHistoryView" class="hidden">
+        <button class="btn btn-secondary back-btn" onclick="showStoreList()">
+          ➔ العودة إلى قائمة المتاجر
+        </button>
+
+        <div class="section-title">
+          <h3>📋 سجل طلباتك السابقة (تخزين محلي)</h3>
+          <p style="font-size: 12px; color: var(--text-muted);">جميع تفاصيل الطلبات، الأسعار الإجمالية بالدينار الجزائري، ومواعيد التوصيل</p>
+        </div>
+
+        <div id="orderHistoryList" style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: SHOP VIEW -->
+    <section id="shopView" class="view-section hidden">
+      <div class="dashboard-header">
+        <h2 id="shopDashboardTitle">لوحة تحكم المتجر (مطعم الأوراس)</h2>
+        <span class="status-pill status-open">المتجر مفتوح لاستقبال الطلبات ✅</span>
+      </div>
+
+      <!-- Browser Notification & Audio Alert Banner for Merchant -->
+      <div class="audio-alert-banner">
+        <div class="audio-banner-info">
+          <div class="audio-status-indicator">
+            <span class="pulse-dot-green"></span>
+            <strong>🔊 التنبيه الصوتي المتصفحي مفعل</strong>
+          </div>
+          <p>يرن جرس المتصفح بصوت قوي وفوري فور وصول أي طلب جديد لتسريع الاستجابة والتحضير.</p>
+        </div>
+        <div class="audio-banner-actions">
+          <button type="button" class="btn btn-sm btn-primary" onclick="testNotificationSound('shop')">
+            🔊 تجربة رنين الجرس
+          </button>
+          <button type="button" id="shopNotifPermBtn" class="btn btn-sm btn-outline" onclick="requestBrowserNotificationPermission()">
+            🔔 إشعارات المتصفح
+          </button>
+          <button type="button" id="shopAudioToggleBtn" class="btn btn-sm btn-secondary" onclick="toggleAudioMute()">
+            🔈 كتم / تشغيل
+          </button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="simulateNewIncomingOrder('shop')" style="border-color: var(--primary); color: var(--primary);">
+            🛎️ محاكاة وصول طلب جديد
+          </button>
+        </div>
+      </div>
+
+      <div class="section-title" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+        <h3>طلبات الزبائن الواردة للمتجر</h3>
+        <span id="shopOrdersBadge" class="badge" style="background:var(--primary); color:white; font-size:12px; padding:3px 8px; border-radius:8px;">1 طلب نشط</span>
+      </div>
+
+      <div id="shopOrdersList" class="orders-list">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
+
+    <!-- VIEW 3: DRIVER VIEW -->
+    <section id="driverView" class="view-section hidden">
+      <div class="driver-card">
+        <div class="driver-status-toggle">
+          <div>
+            <h3 id="driverDashboardTitle">حالة السائق (أمين - SYM 125)</h3>
+            <p>عند التفعيل سيظهر موقعك المباشر للزبائن في خريطة سور الغزلان</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="driverOnlineToggle" checked onchange="toggleDriverOnline(this.checked)">
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <div class="driver-gps-bar">
+          <span>📡 بث الإحداثيات: <strong id="driverCoordsLabel">36.1482° N, 3.6912° E</strong></span>
+          <button class="btn btn-sm btn-outline" onclick="simulateDriverMovement()">محاكاة حركة الدراجة 🛵</button>
+        </div>
+      </div>
+
+      <!-- Browser Notification & Audio Alert Banner for Driver -->
+      <div class="audio-alert-banner">
+        <div class="audio-banner-info">
+          <div class="audio-status-indicator">
+            <span class="pulse-dot-green"></span>
+            <strong>🛵 جرس تنبيه طلبات التوصيل المباشر</strong>
+          </div>
+          <p>تنبيه صوتي متكرر واهتزاز فور توفر طلب توصيل جديد في أحياء سور الغزلان لسرعة قبوله.</p>
+        </div>
+        <div class="audio-banner-actions">
+          <button type="button" class="btn btn-sm btn-primary" onclick="testNotificationSound('driver')">
+            🔊 تجربة رنين الجرس
+          </button>
+          <button type="button" id="driverNotifPermBtn" class="btn btn-sm btn-outline" onclick="requestBrowserNotificationPermission()">
+            🔔 إشعارات النظام
+          </button>
+          <button type="button" id="driverAudioToggleBtn" class="btn btn-sm btn-secondary" onclick="toggleAudioMute()">
+            🔈 كتم / تشغيل
+          </button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="simulateNewIncomingOrder('driver')" style="border-color: var(--primary); color: var(--primary);">
+            🛎️ محاكاة طلب توصيل
+          </button>
+        </div>
+      </div>
+
+      <div class="section-title" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+        <h3>الطلبات الجاهزة للتوصيل في سور الغزلان</h3>
+        <span id="driverOrdersBadge" class="badge" style="background:#22c55e; color:white; font-size:12px; padding:3px 8px; border-radius:8px;">1 طلب جاهز</span>
+      </div>
+
+      <div id="driverOrdersList" class="orders-list">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
+
+    <!-- VIEW 4: ADMIN VIEW -->
+    <section id="adminView" class="view-section hidden">
+      <!-- Admin In-Page Login Gate (Shown when not authenticated as admin) -->
+      <div id="adminLoginGate" class="admin-login-card" style="max-width: 480px; margin: 20px auto; background: var(--card-bg); border: 2px solid var(--primary); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <div style="font-size: 40px; margin-bottom: 8px;">👑</div>
+          <h2 style="font-size: 20px; font-weight: 800; color: var(--text-main); margin-bottom: 6px;">بوابة تسجيل دخول الإدارة</h2>
+          <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5;">
+            يرجى تسجيل الدخول بحساب مسؤول المنصة للوصول إلى لوحة التحكم ومراقبة السائقين وإدارة الطلبات والحسابات.
+          </p>
+        </div>
+
+        <div id="inPageAdminAlert" class="auth-alert hidden" style="margin-bottom: 16px;"></div>
+
+        <form id="inPageAdminLoginForm" onsubmit="handleInPageAdminLogin(event)">
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label style="font-weight: 700; font-size: 13px; display: block; margin-bottom: 6px;">رقم هاتف الإدارة (الجزائر):</label>
+            <input type="tel" id="inPageAdminPhone" class="form-control" value="0555000000" placeholder="0555000000" required style="font-size: 15px; font-weight: 700; direction: ltr; text-align: right;">
+          </div>
+
+          <div class="form-group" style="margin-bottom: 18px;">
+            <label style="font-weight: 700; font-size: 13px; display: block; margin-bottom: 6px;">كلمة المرور:</label>
+            <input type="password" id="inPageAdminPassword" class="form-control" value="admin123" placeholder="كلمة المرور" required style="font-size: 15px;">
+          </div>
+
+          <button type="submit" id="btnInPageAdminSubmit" class="btn btn-primary btn-block" style="font-size: 15px; font-weight: 800; padding: 12px; margin-bottom: 10px;">
+            دخول إلى لوحة التحكم ➔
+          </button>
+        </form>
+
+        <div style="margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border); text-align: center;">
+          <button type="button" class="btn btn-block" onclick="oneClickAdminLogin()" style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: white; font-weight: 800; font-size: 14px; padding: 10px; border: none; border-radius: 8px; cursor: pointer;">
+            ⚡ دخول تجريبي فوري بنقرة واحدة (One-Click Admin)
+          </button>
+          <div style="margin-top: 10px; font-size: 12px; color: var(--text-muted); background: var(--card-subtle); padding: 8px; border-radius: 8px;">
+            بيانات الدخول الافتراضية: <strong>0555000000</strong> / <strong>admin123</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin Dashboard Content (Shown when authenticated as admin) -->
+      <div id="adminDashboardContent" class="hidden">
+        <div style="background: var(--card-subtle); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 24px;">👑</span>
+            <div>
+              <strong style="font-size: 14px; color: var(--text-main);" id="adminProfileName">مسؤول المنصة (الإدارة المركزية)</strong>
+              <div style="font-size: 12px; color: #10B981; font-weight: 700;">● متصل الآن بصلاحيات كاملة</div>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-outline" onclick="logoutAdminSession()" style="font-size: 12px;">
+            تبديل الحساب / خروج 🚪
+          </button>
+        </div>
+
+        <!-- Admin Navigation Sub-Tabs -->
+        <div class="admin-nav-tabs" style="display: flex; gap: 8px; margin: 16px 0 20px 0; border-bottom: 2px solid var(--border); padding-bottom: 12px; flex-wrap: wrap;">
+          <button id="tabBtnAdminOps" class="btn btn-sm btn-primary" onclick="switchAdminSection('ops')">
+            📊 الإحصائيات والعمليات
+          </button>
+          <button id="tabBtnAdminPending" class="btn btn-sm btn-outline" onclick="switchAdminSection('pending')">
+            ⏳ طلبات التفعيل المعلقة <span id="adminPendingCountBadge" class="badge" style="background:#f59e0b; color:black; font-size:11px; margin-right:4px;">0</span>
+          </button>
+          <button id="tabBtnAdminUsers" class="btn btn-sm btn-outline" onclick="switchAdminSection('users')">
+            👥 إدارة كافة الحسابات (تعليق / حذف)
+          </button>
+          <button id="tabBtnAdminNeighborhoods" class="btn btn-sm btn-outline" onclick="switchAdminSection('neighborhoods')">
+            🏘️ إدارة وتعديل الأحياء
+          </button>
+        </div>
+
+        <!-- SECTION 1: OPERATIONS & STATS -->
+        <div id="adminOpsSection">
+          <div class="stats-row">
+            <div class="stat-card">
+              <span class="stat-val" id="adminTotalOrders">12</span>
+              <span class="stat-lbl">طلبات اليوم</span>
+            </div>
+            <div class="stat-card highlight">
+              <span class="stat-val" id="adminRevenue">14,200 دج</span>
+              <span class="stat-lbl">مجموع المبيعات</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-val" id="adminActiveDrivers">2</span>
+              <span class="stat-lbl">سائقين متصلين 🛵</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-val" id="adminActiveShops">4</span>
+              <span class="stat-lbl">متاجر مفتوحة</span>
+            </div>
+          </div>
+
+          <div class="geofence-card">
+            <h4>النطاق الجغرافي المعتمد (Geofence):</h4>
+            <p>📍 مركز البلدية: <strong>36.1480° N, 3.6900° E</strong> (نصف القطر: 8 كم - بلدية سور الغزلان)</p>
+          </div>
+
+          <div class="section-title" style="margin-top: 20px;">
+            <h3>سجل كافة العمليات والطلبات المباشرة</h3>
+          </div>
+          <div id="adminOrdersList" class="orders-list"></div>
+        </div>
+
+        <!-- SECTION 2: PENDING APPROVALS -->
+        <div id="adminPendingSection" class="hidden">
+          <div class="section-title" style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+            <h3>🔔 طلبات الحسابات بانتظار تفعيل الإدارة</h3>
+            <button class="btn btn-sm btn-outline" onclick="loadPendingUsers()">تحديث الطلبات 🔄</button>
+          </div>
+          <div id="adminPendingUsersList" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- SECTION 3: ALL USERS MANAGEMENT (SUSPEND / DELETE / REACTIVATE) -->
+        <div id="adminUsersSection" class="hidden">
+          <div style="background: var(--card-subtle); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 18px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 14px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 800; color: var(--text-main); margin-bottom: 4px;">👥 إدارة وحظر وحذف الحسابات</h3>
+                <p style="font-size: 12px; color: var(--text-muted); margin: 0;">التحكم الكامل بجميع حسابات الزبائن، المتاجر، والسائقين (تفعيل، تعليق/تجميد، أو حذف نهائي)</p>
+              </div>
+              <button class="btn btn-sm btn-outline" onclick="loadAllAdminUsers()">
+                تحديث القائمة 🔄
+              </button>
+            </div>
+
+            <!-- Filters and Search Bar -->
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <input type="text" id="adminUserSearchInput" class="form-control" placeholder="🔍 ابحث بالاسم، برقم الهاتف الجزائري، أو الدور..." oninput="handleAdminUserSearch(this.value)">
+
+              <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                <span style="font-size: 12px; color: var(--text-muted); font-weight: 700;">التصنيف:</span>
+                <button class="btn btn-sm btn-primary admin-role-chip" id="chipRoleAll" onclick="filterAdminUsersByRole('all')">الكل</button>
+                <button class="btn btn-sm btn-outline admin-role-chip" id="chipRoleCustomer" onclick="filterAdminUsersByRole('customer')">👤 الزبائن</button>
+                <button class="btn btn-sm btn-outline admin-role-chip" id="chipRoleStore" onclick="filterAdminUsersByRole('shop')">🏬 المتاجر</button>
+                <button class="btn btn-sm btn-outline admin-role-chip" id="chipRoleDriver" onclick="filterAdminUsersByRole('driver')">🛵 السائقين</button>
+                <button class="btn btn-sm btn-outline admin-role-chip" id="chipRoleSuspended" onclick="filterAdminUsersByRole('suspended')">🛑 المعلقة فقط</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <span id="adminUsersCountLabel" style="font-size: 13px; font-weight: 700; color: var(--text-muted);">جاري تحميل الحسابات...</span>
+          </div>
+
+          <!-- All Users List Container -->
+          <div id="adminAllUsersList" style="display:flex; flex-direction:column; gap:10px; margin-bottom: 25px;">
+            <!-- Populated dynamically via loadAllAdminUsers() -->
+          </div>
+        </div>
+
+        <!-- SECTION 4: NEIGHBORHOODS MANAGEMENT (ADD / EDIT / DELETE) -->
+        <div id="adminNeighborhoodsSection" class="hidden">
+          <div style="background: var(--card-subtle); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 18px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 14px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 800; color: var(--text-main); margin-bottom: 4px;">🏘️ خاصية إدخال وتعديل أحياء سور الغزلان</h3>
+                <p style="font-size: 12px; color: var(--text-muted); margin: 0;">إضافة أحياء جديدة وتعديل أسمائها وإحداثياتها الجغرافية لتظهر فوراً في خيارات التوصيل للزبائن والمتاجر</p>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button class="btn btn-sm btn-primary" onclick="openAddNeighborhoodModal()">
+                  ➕ إضافة حي جديد
+                </button>
+                <button class="btn btn-sm btn-outline" onclick="resetWebNeighborhoods()">
+                  🔄 استعادة الافتراضي
+                </button>
+              </div>
+            </div>
+
+            <!-- Neighborhoods Search Bar -->
+            <input type="text" id="adminNeighborhoodSearch" class="form-control" placeholder="🔍 ابحث في أحياء سور الغزلان المسجلة..." oninput="filterAdminNeighborhoods(this.value)">
+          </div>
+
+          <div id="adminNeighborhoodsList" style="display:flex; flex-direction:column; gap:10px; margin-bottom: 25px;">
+            <!-- Populated dynamically via renderAdminNeighborhoods() -->
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- FLOATING CART BAR -->
+  <div id="floatingCart" class="floating-cart hidden">
+    <div class="cart-info">
+      <span class="cart-count" id="cartCountBadge">0</span>
+      <div>
+        <div class="cart-total-text">المجموع: <strong id="cartTotalSum">0</strong> دج</div>
+        <div class="cart-delivery-note">+ 200 دج توصيل ثابت (دفع عند الاستلام)</div>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="openDriverSelectionModal()">
+      إتمام الطلب واختيار السائق 🛵
+    </button>
+  </div>
+
+  <!-- MODAL: DRIVER SELECTION & CHECKOUT -->
+  <div id="driverModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🛵 إتمام الطلب واختيار سائق التوصيل</h3>
+        <button class="close-btn" onclick="closeDriverSelectionModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Delivery Address Details -->
+        <div class="form-group">
+          <label>اسم الزبون الكريم:</label>
+          <input type="text" id="custNameInput" class="form-control" value="محمد - زبون سور الغزلان" placeholder="الاسم الكامل">
+        </div>
+
+        <div class="form-group">
+          <label>رقم الهاتف الجزائري (05 / 06 / 07):</label>
+          <input type="tel" id="custPhoneInput" class="form-control" value="0550123456" placeholder="05XXXXXXXX">
+        </div>
+
+        <div class="form-group">
+          <label>الحي في سور الغزلان:</label>
+          <select id="custNeighborhoodSelect" class="form-control">
+            <option value="وسط المدينة">وسط المدينة (Centre Ville)</option>
+            <option value="حي الوئام">حي الوئام (Hai El Wiame)</option>
+            <option value="حي 114 مسكن">حي 114 مسكن (114 Logements)</option>
+            <option value="حي ذراع البرج">حي ذراع البرج (Draa El Bordj)</option>
+            <option value="حي عين مريم">حي عين مريم (Ain Meriem)</option>
+            <option value="حي باب الجزائر">حي باب الجزائر (Bab El Djazair)</option>
+            <option value="حي باب البوسعادة">حي باب البوسعادة (Bab Boussaada)</option>
+            <option value="المنطقة الصناعية">المنطقة الصناعية (Zone Industrielle)</option>
+            <option value="حي النصر">حي النصر (Hai En-Nasr)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>وصف دقيق للعنوان (معلم قريب أو رقم العمارة):</label>
+          <input type="text" id="custAddressInput" class="form-control" value="مقابل صيدلية الأمل، العمارة ب، الطابق 2" placeholder="وصف العنوان">
+        </div>
+
+        <!-- OpenStreetMap Drivers Map -->
+        <label class="map-label">📍 خريطة دراجات السائقين المتصلين في سور الغزلان:</label>
+        <div id="driversMap" class="drivers-map-container"></div>
+
+        <!-- Driver List Selector -->
+        <label class="drivers-list-label">اختر سائقك المفضل:</label>
+        <div id="driversListContainer" class="drivers-radio-group">
+          <!-- Populated dynamically -->
+        </div>
+
+        <div class="order-summary-box">
+          <div class="summary-line"><span>ثمن الوجبات:</span><span id="summarySubtotal">0 دج</span></div>
+          <div class="summary-line"><span>سعر التوصيل (ثابت):</span><span>200 دج</span></div>
+          <div class="summary-line total"><span>المجموع الإجمالي (عند الاستلام):</span><span id="summaryTotal">200 دج</span></div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-primary btn-block" onclick="confirmOrder()">
+          تأكيد الطلب الآن (الدفع عند الاستلام COD) ✅
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: LIVE REAL-TIME TRACKING SCREEN -->
+  <div id="trackingModal" class="modal-backdrop hidden">
+    <div class="modal-content tracking-modal-content">
+      <div class="modal-header tracking-header">
+        <div>
+          <h3>تتبع الطلب المباشر</h3>
+          <span class="order-id-label" id="trackOrderNum">SOUR-8921</span>
+        </div>
+        <button class="close-btn" onclick="closeTrackingModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Stepper Progress Bar -->
+        <div class="stepper-container">
+          <div class="step-item" id="step1">
+            <div class="step-circle">1</div>
+            <span>تم الطلب</span>
+          </div>
+          <div class="step-line" id="line1"></div>
+          <div class="step-item" id="step2">
+            <div class="step-circle">2</div>
+            <span>تحضير الوجبة</span>
+          </div>
+          <div class="step-line" id="line2"></div>
+          <div class="step-item" id="step3">
+            <div class="step-circle">3</div>
+            <span>قيد التوصيل</span>
+          </div>
+          <div class="step-line" id="line3"></div>
+          <div class="step-item" id="step4" onclick="completeDeliverySimulation()" style="cursor: pointer;" title="اضغط لمحاكاة إتمام التسليم">
+            <div class="step-circle">4</div>
+            <span>تم التسليم</span>
+          </div>
+        </div>
+
+        <!-- Live Real-Time OpenStreetMap Tracking Canvas -->
+        <div class="map-tracking-wrapper">
+          <div id="liveTrackingMap" class="live-map"></div>
+          <div class="live-badge-overlay">
+            <span class="pulse-dot"></span> بث موقع الدراجة المباشر (WebSocket Live)
+          </div>
+        </div>
+
+        <!-- Driver & Order Info Card -->
+        <div class="tracking-info-card">
+          <div class="driver-profile-row">
+            <div class="driver-avatar-circle">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
+            </div>
+            <div class="driver-details">
+              <h4 id="trackDriverName">أمين التوصيل (دراجة SYM)</h4>
+              <p id="trackDriverPhone">هاتف: +213553333333</p>
+              <div class="eta-tag">الوقت المقدر للوصول: <strong id="trackEta">8 دقائق</strong></div>
+            </div>
+            <a id="trackCallBtn" href="tel:+213553333333" class="call-btn">اتصال بالسائق</a>
+          </div>
+
+          <div class="payment-cod-notice">
+            <span>المبلغ المطلوب تسليمه للسائق نقداً:</span>
+            <strong id="trackTotalCod">1,150 دج</strong>
+          </div>
+        </div>
+
+        <!-- Driver Rating Section (Shown after delivery completion) -->
+        <div id="driverRatingSection" class="driver-rating-card hidden">
+          <div class="rating-header">
+            <h4>تقييم خدمة سائق التوصيل</h4>
+            <p id="ratingSubtitle">تم تسليم طلبك بنجاح. كيف كانت تجربة التوصيل والتعامل مع السائق؟</p>
+          </div>
+
+          <div class="stars-rating-container" id="starsRatingContainer" role="radiogroup" aria-label="تقييم السائق من 1 إلى 5 نجوم">
+            <button type="button" class="star-btn" data-value="1" onclick="handleStarClick(1)" onmouseenter="handleStarHover(1)" onmouseleave="handleStarLeave()" aria-label="نجمة واحدة">★</button>
+            <button type="button" class="star-btn" data-value="2" onclick="handleStarClick(2)" onmouseenter="handleStarHover(2)" onmouseleave="handleStarLeave()" aria-label="نجمتان">★</button>
+            <button type="button" class="star-btn" data-value="3" onclick="handleStarClick(3)" onmouseenter="handleStarHover(3)" onmouseleave="handleStarLeave()" aria-label="3 نجوم">★</button>
+            <button type="button" class="star-btn" data-value="4" onclick="handleStarClick(4)" onmouseenter="handleStarHover(4)" onmouseleave="handleStarLeave()" aria-label="4 نجوم">★</button>
+            <button type="button" class="star-btn" data-value="5" onclick="handleStarClick(5)" onmouseenter="handleStarHover(5)" onmouseleave="handleStarLeave()" aria-label="5 نجوم">★</button>
+          </div>
+
+          <div id="ratingTextLabel" class="rating-text-label">اضغط على النجوم لتحديد التقييم (1 - 5)</div>
+
+          <div class="rating-input-group">
+            <textarea id="ratingCommentInput" class="form-control rating-textarea" placeholder="أضف ملاحظة أو كلمة شكر للسائق (اختياري)..." rows="2"></textarea>
+          </div>
+
+          <div class="rating-actions-row">
+            <button id="submitRatingBtn" class="btn btn-primary btn-block" onclick="submitDriverRating()" disabled>
+              إرسال التقييم
+            </button>
+          </div>
+
+          <div id="ratingSuccessMsg" class="rating-success-msg hidden">
+            تم تسجيل تقييمك للسائق بنجاح. شكراً لمشاركتك القيمة!
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: AUTHENTICATION (LOGIN & REGISTRATION) -->
+  <div id="authModal" class="modal-backdrop hidden">
+    <div class="modal-content auth-modal-content">
+      <div class="auth-header" style="position: relative;">
+        <button type="button" class="close-btn" onclick="closeAuthModalGuest()" style="position: absolute; left: 0; top: 0;" title="إغلاق">✕</button>
+        <div class="auth-logo-badge">🛵</div>
+        <h2>تطبيق SGdelivery</h2>
+        <p>المنصة الموحدة لتوصيل الطلبات - سور الغزلان</p>
+      </div>
+
+      <!-- Auth Tabs -->
+      <div class="auth-tabs">
+        <button id="tabLoginBtn" class="auth-tab active" onclick="switchAuthTab('login')">تسجيل الدخول</button>
+        <button id="tabRegisterBtn" class="auth-tab" onclick="switchAuthTab('register')">حساب جديد</button>
+      </div>
+
+      <div id="authAlert" class="auth-alert hidden"></div>
+
+      <!-- Tab 1: Login Form -->
+      <form id="loginForm" class="auth-form" onsubmit="handleLoginSubmit(event)">
+        <div class="form-group">
+          <label for="loginPhone">رقم الهاتف (الجزائر):</label>
+          <input type="tel" id="loginPhone" class="form-control" placeholder="مثال: 0555000000 أو 06/07" required>
+        </div>
+        <div class="form-group">
+          <label for="loginPassword">كلمة المرور:</label>
+          <input type="password" id="loginPassword" class="form-control" placeholder="••••••••" required>
+        </div>
+        <button type="submit" id="loginSubmitBtn" class="btn btn-primary btn-block">
+          دخول إلى حسابي ➔
+        </button>
+        <div style="text-align: center; margin-top: 14px;">
+          <button type="button" class="btn btn-outline btn-block" onclick="closeAuthModalGuest()">
+            المتابعة كزائر (تصفح فقط) 🛒
+          </button>
+        </div>
+      </form>
+
+      <!-- Tab 2: Register Form -->
+      <form id="registerForm" class="auth-form hidden" onsubmit="handleRegisterSubmit(event)">
+        <div class="form-group">
+          <label>نوع الحساب المطلوب:</label>
+          <select id="regRoleSelect" class="form-control" onchange="handleRegRoleChange(this.value)">
+            <option value="customer">زبون (طلب وتوصيل للمنزل)</option>
+            <option value="store">صاحب متجر أو مطعم</option>
+            <option value="driver">سائق توصيل (دراجة نارية)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label id="regNameLabel">الاسم الكامل:</label>
+          <input type="text" id="regName" class="form-control" placeholder="الاسم الكامل" required>
+        </div>
+
+        <div class="form-group">
+          <label>رقم الهاتف الجزائري:</label>
+          <input type="tel" id="regPhone" class="form-control" placeholder="05XXXXXXXX / 06 / 07" required>
+        </div>
+
+        <div class="form-group">
+          <label>كلمة المرور:</label>
+          <input type="password" id="regPassword" class="form-control" placeholder="6 أحرف أو أرقام على الأقل" minlength="6" required>
+        </div>
+
+        <!-- Store-specific field -->
+        <div id="storeFieldsGroup" class="form-group hidden">
+          <label>تصنيف المتجر أو المطعم:</label>
+          <select id="regStoreCategory" class="form-control">
+            <option value="bbq">🥩 شواء ومشويات</option>
+            <option value="pizza">🍕 بيتزا ومخبوزات</option>
+            <option value="fast_food">🍔 وجبات سريعة وبرغر</option>
+            <option value="sweets">🥐 حلويات ومرطبات</option>
+            <option value="general">🛒 عام / مواد غذائية</option>
+          </select>
+        </div>
+
+        <!-- Driver-specific fields -->
+        <div id="driverFieldsGroup" class="form-group hidden">
+          <label>نوع الدراجة أو المركبة:</label>
+          <input type="text" id="regVehicle" class="form-control" placeholder="مثال: SYM Symphony ST 150">
+          <label style="margin-top: 6px;">رقم اللوحة:</label>
+          <input type="text" id="regLicensePlate" class="form-control" placeholder="مثال: 12345-126-10">
+        </div>
+
+        <div class="form-group">
+          <label>الحي / العنوان في سور الغزلان:</label>
+          <select id="regNeighborhood" class="form-control">
+            <option value="وسط المدينة">وسط المدينة</option>
+            <option value="حي الوئام">حي الوئام</option>
+            <option value="حي 114 مسكن">حي 114 مسكن</option>
+            <option value="حي ذراع البرج">حي ذراع البرج</option>
+            <option value="حي عين مريم">حي عين مريم</option>
+            <option value="حي باب الجزائر">حي باب الجزائر</option>
+            <option value="حي باب البوسعادة">حي باب البوسعادة</option>
+            <option value="المنطقة الصناعية">المنطقة الصناعية</option>
+            <option value="حي النصر">حي النصر</option>
+          </select>
+        </div>
+
+        <button type="submit" id="regSubmitBtn" class="btn btn-primary btn-block">
+          إنشاء حساب وتأكيد ✅
+        </button>
+      </form>
+
+      <!-- Step 3: OTP Verification Form (WhatsApp & Telegram) -->
+      <div id="otpVerifyForm" class="auth-form hidden">
+        <div style="text-align:center; margin-bottom:14px;">
+          <span style="font-size:32px; display:block; margin-bottom:6px;">📲</span>
+          <h3 style="font-size:16px; font-weight:800; color:var(--text-main);">تأكيد رقم الهاتف عبر واتساب أو تلغرام</h3>
+          <p style="font-size:12px; color:var(--text-muted); margin-top:4px;">
+            اختر الوسيلة المفضلة لديك لاستلام كود التحقق السريع المكون من 6 أرقام:
+          </p>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;">
+          <a id="otpWhatsAppLink" href="#" target="_blank" class="btn btn-block" style="background:#25D366; color:white; font-weight:700; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px; font-size:14px;">
+            <span>💬</span> استلام الكود عبر واتساب (WhatsApp)
+          </a>
+          <a id="otpTelegramLink" href="#" target="_blank" class="btn btn-block" style="background:#0088cc; color:white; font-weight:700; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px; font-size:14px;">
+            <span>✈️</span> استلام الكود عبر تلغرام (Telegram)
+          </a>
+        </div>
+
+        <div id="otpQuickCodeCard" style="background:var(--card-subtle); border:1px dashed var(--primary); border-radius:8px; padding:10px; text-align:center; margin-bottom:14px;">
+          <span style="font-size:11px; color:var(--text-muted); display:block;">كود التفعيل التجريبي السريع والمباشر:</span>
+          <strong id="otpQuickCodeVal" style="font-size:22px; color:var(--primary); letter-spacing:4px;">------</strong>
+        </div>
+
+        <div class="form-group">
+          <label style="text-align:center; display:block; font-weight:700;">أدخل رمز التحقق (6 أرقام):</label>
+          <input type="text" id="otpInputCode" class="form-control" placeholder="000000" maxlength="6" style="text-align:center; font-size:22px; letter-spacing:6px; font-weight:800;">
+        </div>
+
+        <button type="button" id="otpConfirmBtn" class="btn btn-primary btn-block" onclick="submitOtpVerification()">
+          تأكيد الرمز والدخول إلى حسابي ✅
+        </button>
+
+        <div style="text-align:center; margin-top:12px;">
+          <button type="button" class="btn btn-sm btn-outline" onclick="backToRegisterForm()">
+            تعديل البيانات أو رقم الهاتف ↩
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

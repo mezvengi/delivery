@@ -1,0 +1,42 @@
+# Caddy Configuration for Sour El Ghozlane Delivery
+# Replace with your actual domain (e.g., delivery.sour-el-ghozlane.dz or your VPS IP/DuckDNS)
+{
+    email admin@sour-delivery.dz
+    admin off
+}
+
+# Main Application Site
+http://localhost, https://localhost, :80 {
+    encode gzip zstd
+
+    # WebSocket connection for real-time driver tracking & order updates
+    @websockets {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    reverse_proxy @websockets backend:3000
+
+    # API Routes proxy to Node.js backend
+    handle /api/* {
+        reverse_proxy backend:3000
+    }
+
+    # WebSocket endpoint direct proxy
+    handle /ws {
+        reverse_proxy backend:3000
+    }
+
+    # Static Web App & PWA files (HTML/CSS/JS with Leaflet.js)
+    handle {
+        root * /var/www/html
+        file_server
+        try_files {path} /index.html
+    }
+
+    # Security Headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy no-referrer-when-downgrade
+    }
+}

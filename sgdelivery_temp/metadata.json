@@ -1,0 +1,6 @@
+{
+  "name": "SGdelivery",
+  "description": "نظام توصيل طلبات محلي متكامل لبلدية سور الغزلان (SGdelivery) - ولاية البويرة (تتبع مباشر، خريطة السائقين، الدفع عند الاستلام)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
